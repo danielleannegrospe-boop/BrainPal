@@ -1,18 +1,24 @@
 <?php
+
 session_start();
 
 if(!isset($_SESSION['userID'])){
+
     header("Location: login.php");
     exit();
+
 }
 
-if($_SESSION['role'] != 'admin'){
+if($_SESSION['role'] != 'student'){
+
     header("Location: login.php");
     exit();
+
 }
+
 ?>
 
-<h1>Admin Dashboard</h1>
+<h1>Student Dashboard</h1>
 
 <h2>
     Welcome
