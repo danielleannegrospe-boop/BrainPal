@@ -2,7 +2,6 @@
 session_start();
 require_once '../backend/database.php';
 
-// CHECK LOGIN
 if (!isset($_SESSION['userID'])) {
     header("Location: ../login.php");
     exit();
@@ -15,25 +14,31 @@ $userID = $_SESSION['userID'];
 ========================= */
 if (isset($_POST['createLesson'])) {
 
-    $subjectID = $_POST['subjectID'];
-    $title = $_POST['lessonTitle'];
-    $description = $_POST['description'];
+    $subjectID = $_POST['subjectID'] ?? null;
+    $title = trim($_POST['lessonTitle'] ?? '');
+    $description = trim($_POST['description'] ?? '');
 
-    $sql = "INSERT INTO lessons (subjectID, lessonTitle, description, createdBy)
-            VALUES (?, ?, ?, ?)";
+    if ($subjectID && $title) {
 
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issi", $subjectID, $title, $description, $userID);
+        $sql = "INSERT INTO lessons (subjectID, lessonTitle, description, createdBy)
+                VALUES (?, ?, ?, ?)";
 
-    if ($stmt->execute()) {
-        $success = "Lesson created successfully!";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("issi", $subjectID, $title, $description, $userID);
+
+        if ($stmt->execute()) {
+            $success = "Lesson created successfully!";
+        } else {
+            $error = "Failed to create lesson.";
+        }
+
     } else {
-        $error = "Failed to create lesson.";
+        $error = "Please fill required fields.";
     }
 }
 
 /* =========================
-   FETCH ACTIVE LESSONS ONLY
+   FETCH LESSONS
 ========================= */
 $sql = "
     SELECT 
@@ -51,13 +56,13 @@ $sql = "
 ";
 
 $result = $conn->query($sql);
-
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Create Lesson</title>
+
     <style>
         body { font-family: Arial; margin: 20px; }
         .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; }
@@ -67,6 +72,7 @@ $result = $conn->query($sql);
         th, td { border: 1px solid #ccc; padding: 10px; }
     </style>
 </head>
+
 <body>
 
 <h2>Create Lesson</h2>
@@ -77,16 +83,36 @@ $result = $conn->query($sql);
 <div class="box">
     <form method="POST">
 
+        <!-- SUBJECT -->
         <label>Subject</label>
-        <select name="subjectID" required>
-            <option value="1">ITWS03: Web System Technologies</option>
-            <option value="2">ITWS04: Web Vulnerabilities</option>
-            <option value="3">ITWS05: Mobile Application Development</option>
+
+        <select name="subjectID" id="subjectSelect" required onchange="showSubjectDesc(this)">
+            <option value="">-- Choose Subject --</option>
+
+            <?php
+            $subjects = $conn->query("SELECT subjectID, subjectName, description FROM subjects WHERE date_deleted IS NULL");
+
+            $subjectData = [];
+
+            while ($sub = $subjects->fetch_assoc()) {
+                $subjectData[$sub['subjectID']] = $sub['description'] ?? '';
+            ?>
+                <option value="<?= $sub['subjectID'] ?>">
+                    <?= $sub['subjectName'] ?> - <?= $sub['description'] ?? 'No description' ?>
+                </option>
+            <?php } ?>
         </select>
 
+        <!-- OPTIONAL PREVIEW BOX -->
+        <div id="subjectDesc"
+             style="margin-top:10px; padding:10px; background:#f5f5f5; display:none;">
+        </div>
+
+        <!-- LESSON TITLE -->
         <label>Lesson Title</label>
         <input type="text" name="lessonTitle" required>
 
+        <!-- DESCRIPTION -->
         <label>Description</label>
         <textarea name="description"></textarea>
 
@@ -109,18 +135,25 @@ $result = $conn->query($sql);
 
     <?php while ($row = $result->fetch_assoc()) { ?>
     <tr>
-        <td><?php echo $row['lessonID']; ?></td>
-        <td><?php echo $row['subjectName']; ?></td>
-        <td><?php echo $row['lessonTitle']; ?></td>
-        <td><?php echo $row['description']; ?></td>
-        <td><?php echo $row['fullName']; ?></td>
-        <td><?php echo $row['date_created']; ?></td>
+        <td><?= $row['lessonID'] ?></td>
+        <td><?= $row['subjectName'] ?></td>
+        <td><?= $row['lessonTitle'] ?></td>
+        <td><?= $row['description'] ?></td>
+        <td><?= $row['fullName'] ?></td>
+        <td><?= $row['date_created'] ?></td>
         <td>
-            <a href="edit-lesson.php?id=<?php echo $row['lessonID']; ?>">Edit</a> |
-            <a href="delete-lesson.php?id=<?php echo $row['lessonID']; ?>"
-               onclick="return confirm('Delete this lesson?')">
-               Delete
-            </a>
+            <td>
+    <a href="edit-lesson.php?id=<?= $row['lessonID'] ?>">Edit</a> |
+
+    <a href="add-question.php?lessonID=<?= $row['lessonID'] ?>">
+        Add Question
+    </a> |
+
+    <a href="delete-lesson.php?id=<?= $row['lessonID'] ?>"
+       onclick="return confirm('Delete this lesson?')">
+        Delete
+    </a>
+</td>
         </td>
     </tr>
     <?php } ?>
