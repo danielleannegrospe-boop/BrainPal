@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../backend/database.php';
+require_once '../../backend/database.php';
 
 // CHECK LOGIN
 if (!isset($_SESSION['userID'])) {

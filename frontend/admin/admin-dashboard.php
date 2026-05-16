@@ -2,16 +2,16 @@
 session_start();
 
 if (!isset($_SESSION['userID'])) {
-    header("Location: login.php");
+    header("Location: ../auth/login.php");
     exit();
 }
 
 if ($_SESSION['role'] != 'admin') {
-    header("Location: login.php");
+    header("Location: ../auth/login.php");
     exit();
 }
 
-require_once '../backend/database.php';
+require_once '../../backend/database.php';
 
 /* =========================
    GET COUNTS
@@ -99,42 +99,42 @@ $quiz = $conn->query("SELECT COUNT(*) AS total FROM quiz_attempts")->fetch_assoc
 
 <div class="welcome">
     <h2>Welcome, <?php echo $_SESSION['name']; ?></h2>
-    <a href="logout.php">Logout</a>
+    <a href="../auth/logout.php">Logout</a>
 </div>
 
 <!-- CARDS -->
 <div class="grid">
 
     <!-- USERS -->
-    <a class="card" href="admin-users.php">
+    <a class="card" href="../admin/admin-users.php">
         <div class="title">Users</div>
         <div class="count"><?= $users ?></div>
         <small>Manage system users</small>
     </a>
 
     <!-- SUBJECTS -->
-    <a class="card" href="subjects.php">
+    <a class="card" href="../admin/subjects.php">
         <div class="title">Subjects</div>
         <div class="count"><?= $subjects ?></div>
         <small>Manage subjects</small>
     </a>
 
     <!-- LESSONS -->
-    <a class="card" href="lesson.php">
+    <a class="card" href="../admin/lesson.php">
         <div class="title">Lessons</div>
         <div class="count"><?= $lessons ?></div>
         <small>View & manage lessons</small>
     </a>
 
     <!-- QUIZ RECORDS -->
-    <a class="card" href="quiz-records.php">
+    <a class="card" href="../admin/quiz-records.php">
         <div class="title">Quiz Records</div>
         <div class="count"><?= $quiz ?></div>
         <small>View quiz attempts</small>
     </a>
 
     <!-- CREATE LESSON -->
-    <a class="card success" href="create-lesson.php">
+    <a class="card success" href="../admin/create-lesson.php">
         <div class="title">Create Lesson</div>
         <div class="count">+</div>
         <small>Add new lesson</small>
