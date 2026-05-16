@@ -2,8 +2,17 @@
 
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/pusher.php';
+require_once '../../backend/csrf.php';
+
+$csrf = generateCSRF();
 
 if (isset($_POST['register'])) {
+
+    // CSRF CHECK
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
 
     $firstName = trim($_POST['firstName']);
     $middleInitial = trim($_POST['middleInitial']);
@@ -58,7 +67,20 @@ if (isset($_POST['register'])) {
 
         if ($stmt->execute()) {
 
-            // redirect to login after success
+            /* =========================
+               REALTIME USER REGISTER
+            ========================= */
+
+            $pusher->trigger(
+                'user-channel',
+                'user-registered',
+                [
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'registeredAt' => date('Y-m-d H:i:s')
+                ]
+            );
+
             header("Location: login.php");
             exit();
 
@@ -81,11 +103,14 @@ if (isset($_POST['register'])) {
 
 <?php if (isset($error)) : ?>
     <p style="color:red;">
-        <?php echo $error; ?>
+        <?= $error; ?>
     </p>
 <?php endif; ?>
 
 <form method="POST">
+
+    <!-- CSRF TOKEN -->
+    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
     <input type="text" name="firstName" placeholder="First Name" required>
     <br><br>

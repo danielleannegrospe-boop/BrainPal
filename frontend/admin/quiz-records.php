@@ -2,8 +2,8 @@
 session_start();
 require_once '../../backend/database.php';
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: ../login.php");
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
     exit();
 }
 
@@ -15,7 +15,7 @@ $sql = "
         qa.attemptID,
         qa.score,
         qa.totalQuestions,
-        qa.submittedAt,
+        qa.attemptedAt,
 
         u.firstName,
         u.lastName,
@@ -25,14 +25,25 @@ $sql = "
         s.subjectName
 
     FROM quiz_attempts qa
-    LEFT JOIN users u ON qa.studentID = u.userID
-    LEFT JOIN lessons l ON qa.lessonID = l.lessonID
-    LEFT JOIN subjects s ON l.subjectID = s.subjectID
 
-    ORDER BY qa.submittedAt DESC
+    LEFT JOIN users u 
+        ON qa.studentID = u.userID
+
+    LEFT JOIN lessons l 
+        ON qa.lessonID = l.lessonID
+
+    LEFT JOIN subjects s 
+        ON l.subjectID = s.subjectID
+
+    ORDER BY qa.attemptedAt DESC
 ";
 
+/* IMPORTANT */
 $result = $conn->query($sql);
+
+if (!$result) {
+    die("SQL Error: " . $conn->error);
+}
 ?>
 
 <!DOCTYPE html>
@@ -62,8 +73,18 @@ $result = $conn->query($sql);
             font-weight: bold;
         }
 
-        .good { color: green; }
-        .bad { color: red; }
+        .good {
+            color: green;
+        }
+
+        .bad {
+            color: red;
+        }
+
+        .empty {
+            text-align: center;
+            color: gray;
+        }
     </style>
 </head>
 
@@ -86,47 +107,103 @@ $result = $conn->query($sql);
         <th>Action</th>
     </tr>
 
-    <?php while ($row = $result->fetch_assoc()) {
+    <?php if ($result->num_rows > 0) { ?>
 
-        $percent = 0;
-        if ($row['totalQuestions'] > 0) {
-            $percent = ($row['score'] / $row['totalQuestions']) * 100;
-        }
-    ?>
+        <?php while ($row = $result->fetch_assoc()) {
 
-    <tr>
-        <td><?= $row['attemptID'] ?></td>
+            $percent = 0;
 
-        <td>
-            <?= $row['firstName'] . ' ' . $row['lastName'] ?>
-        </td>
+            if ($row['totalQuestions'] > 0) {
+                $percent = ($row['score'] / $row['totalQuestions']) * 100;
+            }
+        ?>
 
-        <td><?= $row['email'] ?></td>
+        <tr>
 
-        <td><?= $row['subjectName'] ?></td>
+            <td>
+                <?= $row['attemptID'] ?>
+            </td>
 
-        <td><?= $row['lessonTitle'] ?></td>
+            <td>
+                <?= htmlspecialchars($row['firstName'] . ' ' . $row['lastName']) ?>
+            </td>
 
-        <td class="score"><?= $row['score'] ?></td>
+            <td>
+                <?= htmlspecialchars($row['email']) ?>
+            </td>
 
-        <td><?= $row['totalQuestions'] ?></td>
+            <td>
+                <?= htmlspecialchars($row['subjectName']) ?>
+            </td>
 
-        <td class="<?= ($percent >= 75) ? 'good' : 'bad' ?>">
-            <?= round($percent, 2) ?>%
-        </td>
+            <td>
+                <?= htmlspecialchars($row['lessonTitle']) ?>
+            </td>
 
-        <td><?= $row['submittedAt'] ?></td>
+            <td class="score">
+                <?= $row['score'] ?>
+            </td>
 
-        <td>
-            <a href="view-attempt.php?id=<?= $row['attemptID'] ?>">
-                View Details
-            </a>
-        </td>
-    </tr>
+            <td>
+                <?= $row['totalQuestions'] ?>
+            </td>
+
+            <td class="<?= ($percent >= 75) ? 'good' : 'bad' ?>">
+                <?= round($percent, 2) ?>%
+            </td>
+
+            <td>
+                <?= $row['attemptedAt'] ?>
+            </td>
+
+            <td>
+                <a href="view-attempt.php?id=<?= $row['attemptID'] ?>">
+                    View Details
+                </a>
+            </td>
+
+        </tr>
+
+        <?php } ?>
+
+    <?php } else { ?>
+
+        <tr>
+            <td colspan="10" class="empty">
+                No quiz attempts found.
+            </td>
+        </tr>
 
     <?php } ?>
 
 </table>
+
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+
+<script>
+
+Pusher.logToConsole = true;
+
+var pusher = new Pusher('c96e86af5d96e7dd90f7', {
+    cluster: 'ap1'
+});
+
+var channel = pusher.subscribe('quiz-channel');
+
+channel.bind('quiz-submitted', function(data) {
+
+    alert(
+        'New Quiz Submission!\n\n' +
+        'Attempt ID: ' + data.attemptID +
+        '\nScore: ' + data.score + '/' + data.total +
+        '\nPercentage: ' + data.percentage + '%' +
+        '\nSubmitted: ' + data.attemptedAt
+    );
+
+    location.reload();
+});
+
+</script>
 
 </body>
 </html>

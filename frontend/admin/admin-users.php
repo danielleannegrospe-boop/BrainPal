@@ -1,11 +1,13 @@
 <?php
+
 session_start();
 require_once '../../backend/database.php';
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: ../login.php");
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
     exit();
 }
+
 
 /* =========================
    DELETE USER (SOFT DELETE)
@@ -168,6 +170,30 @@ $result = $stmt->get_result();
     <?php } ?>
 
 </table>
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 
+<script>
+
+Pusher.logToConsole = true;
+
+var PUSHER_KEY = "<?= $env['PUSHER_APP_KEY'] ?>";
+var pusher = new Pusher(PUSHER_KEY, {
+    cluster: 'ap1'
+});
+
+var channel = pusher.subscribe('user-channel');
+
+channel.bind('user-registered', function(data) {
+
+    alert(
+        'New User Registered!\n\n' +
+        'Name: ' + data.name +
+        '\nEmail: ' + data.email
+    );
+
+    location.reload();
+});
+
+</script>
 </body>
 </html>

@@ -1,10 +1,12 @@
 <?php
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
 
-// CHECK LOGIN
-if (!isset($_SESSION['userID'])) {
-    header("Location: ../login.php");
+$csrf = generateCSRF();
+
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
     exit();
 }
 
@@ -19,7 +21,8 @@ if (!isset($_GET['id'])) {
 $questionID = $_GET['id'];
 
 $stmt = $conn->prepare("
-    SELECT * FROM questions WHERE questionID = ? AND date_deleted IS NULL
+    SELECT * FROM questions 
+    WHERE questionID = ? AND date_deleted IS NULL
 ");
 $stmt->bind_param("i", $questionID);
 $stmt->execute();
@@ -33,15 +36,19 @@ if ($result->num_rows == 0) {
 $data = $result->fetch_assoc();
 
 /* =========================
-   UPDATE QUESTION
+   UPDATE QUESTION (CSRF SECURED)
 ========================= */
 if (isset($_POST['updateQuestion'])) {
 
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
+
     $lessonID = $_POST['lessonID'];
-    $questionText = $_POST['questionText'];
+    $questionText = trim($_POST['questionText']);
     $questionType = $_POST['questionType'];
     $difficulty = $_POST['difficulty'];
-    $correctAnswer = $_POST['correctAnswer'];
+    $correctAnswer = trim($_POST['correctAnswer']);
     $points = $_POST['points'] ?? 1;
 
     $sql = "
@@ -51,7 +58,16 @@ if (isset($_POST['updateQuestion'])) {
     ";
 
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssii", $lessonID, $questionText, $questionType, $difficulty, $correctAnswer, $points, $questionID);
+    $stmt->bind_param(
+        "issssii",
+        $lessonID,
+        $questionText,
+        $questionType,
+        $difficulty,
+        $correctAnswer,
+        $points,
+        $questionID
+    );
 
     if ($stmt->execute()) {
         header("Location: add-question.php");
@@ -70,13 +86,13 @@ $lessons = $conn->query("
     WHERE date_deleted IS NULL
     ORDER BY lessonTitle ASC
 ");
-
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Edit Question</title>
+
     <style>
         body { font-family: Arial; margin: 20px; }
         .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; }
@@ -91,43 +107,57 @@ $lessons = $conn->query("
 <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
 
 <div class="box">
+
     <form method="POST">
+
+        <!-- CSRF TOKEN -->
+        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
         <label>Lesson</label>
         <select name="lessonID" required>
             <?php while ($row = $lessons->fetch_assoc()) { ?>
-                <option value="<?php echo $row['lessonID']; ?>"
-                    <?php if ($row['lessonID'] == $data['lessonID']) echo 'selected'; ?>>
-                    <?php echo $row['lessonTitle']; ?>
+                <option value="<?= $row['lessonID']; ?>"
+                    <?= ($row['lessonID'] == $data['lessonID']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($row['lessonTitle']); ?>
                 </option>
             <?php } ?>
         </select>
 
         <label>Question</label>
-        <textarea name="questionText" required><?php echo $data['questionText']; ?></textarea>
+        <textarea name="questionText" required><?= htmlspecialchars($data['questionText']); ?></textarea>
 
         <label>Question Type</label>
         <select name="questionType">
-            <option value="multiple_choice" <?php if($data['questionType']=="multiple_choice") echo "selected"; ?>>Multiple Choice</option>
-            <option value="identification" <?php if($data['questionType']=="identification") echo "selected"; ?>>Identification</option>
-            <option value="enumeration" <?php if($data['questionType']=="enumeration") echo "selected"; ?>>Enumeration</option>
+            <option value="multiple_choice" <?= ($data['questionType']=="multiple_choice") ? "selected" : ""; ?>>
+                Multiple Choice
+            </option>
+            <option value="identification" <?= ($data['questionType']=="identification") ? "selected" : ""; ?>>
+                Identification
+            </option>
+            <option value="enumeration" <?= ($data['questionType']=="enumeration") ? "selected" : ""; ?>>
+                Enumeration
+            </option>
         </select>
 
         <label>Difficulty</label>
         <select name="difficulty">
-            <option value="easy" <?php if($data['difficulty']=="easy") echo "selected"; ?>>Easy</option>
-            <option value="medium" <?php if($data['difficulty']=="medium") echo "selected"; ?>>Medium</option>
-            <option value="hard" <?php if($data['difficulty']=="hard") echo "selected"; ?>>Hard</option>
+            <option value="easy" <?= ($data['difficulty']=="easy") ? "selected" : ""; ?>>Easy</option>
+            <option value="medium" <?= ($data['difficulty']=="medium") ? "selected" : ""; ?>>Medium</option>
+            <option value="hard" <?= ($data['difficulty']=="hard") ? "selected" : ""; ?>>Hard</option>
         </select>
 
         <label>Points</label>
-        <input type="number" name="points" value="<?php echo $data['points']; ?>" min="1">
+        <input type="number" name="points" value="<?= $data['points']; ?>" min="1">
 
         <label>Correct Answer</label>
-        <input type="text" name="correctAnswer" value="<?php echo $data['correctAnswer']; ?>" required>
+        <input type="text" name="correctAnswer" value="<?= htmlspecialchars($data['correctAnswer']); ?>" required>
 
-        <button type="submit" name="updateQuestion">Update Question</button>
+        <button type="submit" name="updateQuestion">
+            Update Question
+        </button>
+
     </form>
+
 </div>
 
 </body>

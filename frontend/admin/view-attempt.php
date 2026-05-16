@@ -2,10 +2,11 @@
 session_start();
 require_once '../../backend/database.php';
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: login.php");
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
     exit();
 }
+
 
 if (!isset($_GET['id'])) {
     header("Location: quiz-records.php");

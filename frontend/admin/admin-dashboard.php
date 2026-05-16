@@ -1,12 +1,8 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
-
-if ($_SESSION['role'] != 'admin') {
+// 🔐 AUTH GUARD (NO BYPASS)
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
@@ -20,6 +16,7 @@ $users = $conn->query("SELECT COUNT(*) AS total FROM users WHERE date_deleted IS
 $subjects = $conn->query("SELECT COUNT(*) AS total FROM subjects WHERE date_deleted IS NULL")->fetch_assoc()['total'];
 $lessons = $conn->query("SELECT COUNT(*) AS total FROM lessons WHERE date_deleted IS NULL")->fetch_assoc()['total'];
 $quiz = $conn->query("SELECT COUNT(*) AS total FROM quiz_attempts")->fetch_assoc()['total'];
+
 ?>
 
 <!DOCTYPE html>
@@ -120,7 +117,7 @@ $quiz = $conn->query("SELECT COUNT(*) AS total FROM quiz_attempts")->fetch_assoc
     </a>
 
     <!-- LESSONS -->
-    <a class="card" href="../admin/lesson.php">
+    <a class="card" href="../admin/lessons.php">
         <div class="title">Lessons</div>
         <div class="count"><?= $lessons ?></div>
         <small>View & manage lessons</small>
@@ -131,13 +128,6 @@ $quiz = $conn->query("SELECT COUNT(*) AS total FROM quiz_attempts")->fetch_assoc
         <div class="title">Quiz Records</div>
         <div class="count"><?= $quiz ?></div>
         <small>View quiz attempts</small>
-    </a>
-
-    <!-- CREATE LESSON -->
-    <a class="card success" href="../admin/create-lesson.php">
-        <div class="title">Create Lesson</div>
-        <div class="count">+</div>
-        <small>Add new lesson</small>
     </a>
 
 </div>

@@ -2,6 +2,11 @@
 session_start();
 require_once '../../backend/database.php';
 
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
 $id = (int) $_GET['id'];
 
 $stmt = $conn->prepare("

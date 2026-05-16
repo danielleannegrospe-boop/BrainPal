@@ -1,32 +1,50 @@
 <?php
 session_start();
-require_once '../backend/database.php';
+require_once '../../backend/database.php';
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: login.php");
+/* =========================
+   🔐 AUTH CHECK
+========================= */
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
+    header("Location: ../auth/login.php");
     exit();
 }
 
 /* =========================
-   GET ATTEMPT ID
+   🔥 RESULT FLOW PROTECTION (IMPORTANT FIX)
+   ONLY ALLOW ACCESS IF QUIZ WAS JUST SUBMITTED
+========================= */
+if (!isset($_SESSION['quizCompleted']) || $_SESSION['quizCompleted'] !== true) {
+    header("Location: student-dashboard.php");
+    exit();
+}
+
+/* =========================
+   GET ATTEMPT ID (FROM SESSION, NOT URL SAFE ACCESS)
 ========================= */
 if (!isset($_GET['attemptID'])) {
-    echo "No attempt found.";
+    header("Location: student-dashboard.php");
     exit();
 }
 
 $attemptID = $_GET['attemptID'];
+$userID = $_SESSION['userID'];
 
 /* =========================
-   GET ATTEMPT INFO
+   🔐 SECURITY CHECK (OWNERSHIP)
 ========================= */
 $stmt = $conn->prepare("
     SELECT * FROM quiz_attempts
-    WHERE attemptID = ?
+    WHERE attemptID = ? AND studentID = ?
 ");
-$stmt->bind_param("i", $attemptID);
+$stmt->bind_param("ii", $attemptID, $userID);
 $stmt->execute();
 $attempt = $stmt->get_result()->fetch_assoc();
+
+if (!$attempt) {
+    header("Location: student-dashboard.php");
+    exit();
+}
 
 /* =========================
    GET ANSWERS + QUESTIONS
@@ -48,26 +66,55 @@ $stmt2->execute();
 $answers = $stmt2->get_result();
 
 /* =========================
-   COMPUTE SCORE DATA
+   SCORE COMPUTATION
 ========================= */
 $total = $attempt['totalQuestions'];
 $score = $attempt['score'];
 
 $percentage = ($total > 0) ? ($score / $total) * 100 : 0;
 $passed = ($percentage >= 75) ? "PASSED" : "FAILED";
+
+/* =========================
+   🔥 ONCE VIEWED, LOCK AGAIN
+========================= */
+unset($_SESSION['quizCompleted']);
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Quiz Result</title>
+
     <style>
-        body { font-family: Arial; margin: 20px; }
-        .box { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-        .correct { color: green; }
-        .wrong { color: red; }
+        body { font-family: Arial; margin: 20px; background:#f5f5f5; }
+
+        .box {
+            background:white;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        .correct { color: green; font-weight: bold; }
+        .wrong { color: red; font-weight: bold; }
+
+        a {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background:#007bff;
+            color:white;
+            text-decoration:none;
+            border-radius:5px;
+        }
+
+        a:hover {
+            background:#0056b3;
+        }
     </style>
 </head>
+
 <body>
 
 <h2>Quiz Result</h2>
@@ -93,7 +140,7 @@ $passed = ($percentage >= 75) ? "PASSED" : "FAILED";
 </div>
 
 <!-- =========================
-     REVIEW ANSWERS
+     ANSWER REVIEW
 ========================= -->
 <div class="box">
 
@@ -101,7 +148,7 @@ $passed = ($percentage >= 75) ? "PASSED" : "FAILED";
 
     <?php while ($row = $answers->fetch_assoc()) { ?>
 
-        <div style="margin-bottom:15px; padding:10px; border:1px solid #ddd;">
+        <div style="margin-bottom:15px; padding:10px; border:1px solid #eee; border-radius:8px;">
 
             <p><b>Question:</b> <?php echo htmlspecialchars($row['questionText']); ?></p>
 
@@ -123,6 +170,6 @@ $passed = ($percentage >= 75) ? "PASSED" : "FAILED";
 </div>
 
 <a href="take-quiz.php">Take Another Quiz</a>
-
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 </body>
 </html>

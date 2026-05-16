@@ -1,38 +1,55 @@
 <?php
 session_start();
-require_once '../backend/database.php';
+require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
 
-if (!isset($_SESSION['userID'])) {
-    header("Location: login.php");
+/* =========================
+   AUTH CHECK
+========================= */
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
+    header("Location: ../auth/login.php");
     exit();
 }
 
-$userID = $_SESSION['userID'];
+/* =========================
+   CSRF INIT
+========================= */
+$csrf = generateCSRF();
 
 /* =========================
-   SELECTED VALUES
+   SET QUIZ SESSION ONLY WHEN STARTING
 ========================= */
+if (isset($_GET['start'])) {
+    $_SESSION['canTakeQuiz'] = true;
+    $_SESSION['quizLessonID'] = null;
+}
+
+/* =========================
+   VARIABLES
+========================= */
+$userID = $_SESSION['userID'];
+
 $selectedSubject = $_GET['subject'] ?? null;
 $selectedLesson = $_GET['lessonID'] ?? null;
 $selectedDifficulty = $_GET['difficulty'] ?? null;
 $selectedType = $_GET['questionType'] ?? null;
 
 /* =========================
-   GET SUBJECTS (WITH DESCRIPTION FIX)
+   SUBJECTS
 ========================= */
 $subjects = $conn->query("
     SELECT subjectID, subjectName, description
     FROM subjects
     WHERE date_deleted IS NULL
+    ORDER BY subjectName ASC
 ");
 
 /* =========================
-   GET LESSONS BASED ON SUBJECT
+   LESSONS
 ========================= */
 $lessons = null;
 
 if (!empty($selectedSubject)) {
-
     $stmt = $conn->prepare("
         SELECT lessonID, lessonTitle
         FROM lessons
@@ -40,21 +57,21 @@ if (!empty($selectedSubject)) {
         AND date_deleted IS NULL
         ORDER BY lessonTitle ASC
     ");
-
     $stmt->bind_param("i", $selectedSubject);
     $stmt->execute();
     $lessons = $stmt->get_result();
 }
 
 /* =========================
-   GET QUESTIONS
+   QUESTIONS
 ========================= */
 $questions = null;
 
-if ($selectedLesson && $selectedDifficulty && $selectedType) {
+if (!empty($selectedLesson) && !empty($selectedDifficulty) && !empty($selectedType)) {
 
     $stmt = $conn->prepare("
-        SELECT questionID, questionText
+        SELECT questionID, questionText, questionType,
+               choiceA, choiceB, choiceC, choiceD
         FROM questions
         WHERE lessonID = ?
         AND difficulty = ?
@@ -66,7 +83,6 @@ if ($selectedLesson && $selectedDifficulty && $selectedType) {
 
     $stmt->bind_param("iss", $selectedLesson, $selectedDifficulty, $selectedType);
     $stmt->execute();
-
     $questions = $stmt->get_result();
 }
 ?>
@@ -74,111 +90,136 @@ if ($selectedLesson && $selectedDifficulty && $selectedType) {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Take Quiz</title>
-    <style>
-        body { font-family: Arial; margin: 20px; }
-        .box { border: 1px solid #ccc; padding: 15px; margin-top: 15px; }
-        select, input { width: 100%; padding: 8px; margin-top: 5px; }
-        button { padding: 10px 15px; margin-top: 10px; }
-        small { color: #666; }
-    </style>
+<title>Take Quiz</title>
+
+<style>
+body { font-family: Arial; margin: 20px; background:#f5f5f5; }
+.box { background:white; padding:20px; border-radius:10px; margin-bottom:20px; }
+.question-box { border:1px solid #ccc; padding:15px; margin-bottom:15px; border-radius:8px; }
+.choice { margin-bottom:8px; }
+button { padding:10px; background:#007bff; color:white; border:none; border-radius:5px; }
+</style>
 </head>
+
 <body>
 
 <h2>Take Quiz</h2>
 
-<!-- =========================
-     FORM
-========================= -->
+<!-- FILTER FORM (GET) -->
 <form method="GET">
 <div class="box">
 
-    <!-- SUBJECT -->
-    <label>Subject</label>
-    <select name="subject" onchange="this.form.submit()" required>
-        <option value="">-- Choose Subject --</option>
+<label>Subject</label>
+<select name="subject" onchange="this.form.submit()" required>
+<option value="">-- Choose Subject --</option>
 
-        <?php while ($s = $subjects->fetch_assoc()) { ?>
-            <option value="<?= $s['subjectID'] ?>"
-                <?= ($selectedSubject == $s['subjectID']) ? 'selected' : '' ?>>
+<?php while ($s = $subjects->fetch_assoc()) { ?>
+<option value="<?= $s['subjectID'] ?>"
+<?= ($selectedSubject == $s['subjectID']) ? 'selected' : '' ?>>
+<?= htmlspecialchars($s['subjectName']) ?>
+</option>
+<?php } ?>
 
-                <?= $s['subjectName'] ?>
-                <?php if (!empty($s['description'])): ?>
-                    - <?= $s['description'] ?>
-                <?php endif; ?>
+</select>
 
-            </option>
-        <?php } ?>
+<label>Lesson</label>
+<select name="lessonID" required>
+<option value="">-- Choose Lesson --</option>
 
-    </select>
+<?php if ($lessons) { ?>
+<?php while ($l = $lessons->fetch_assoc()) { ?>
+<option value="<?= $l['lessonID'] ?>"
+<?= ($selectedLesson == $l['lessonID']) ? 'selected' : '' ?>>
+<?= htmlspecialchars($l['lessonTitle']) ?>
+</option>
+<?php } ?>
+<?php } ?>
 
-    <!-- LESSON -->
-    <label>Lesson</label>
-    <select name="lessonID" required>
-        <option value="">-- Choose Lesson --</option>
+</select>
 
-        <?php if ($lessons): ?>
-            <?php while ($l = $lessons->fetch_assoc()) { ?>
-                <option value="<?= $l['lessonID'] ?>"
-                    <?= ($selectedLesson == $l['lessonID']) ? 'selected' : '' ?>>
-                    <?= $l['lessonTitle'] ?>
-                </option>
-            <?php } ?>
-        <?php endif; ?>
+<label>Difficulty</label>
+<select name="difficulty" required>
+<option value="">-- Choose --</option>
+<option value="easy">Easy</option>
+<option value="medium">Medium</option>
+<option value="hard">Hard</option>
+</select>
 
-    </select>
+<label>Type</label>
+<select name="questionType" required>
+<option value="">-- Choose --</option>
+<option value="multiple_choice">Multiple Choice</option>
+<option value="identification">Identification</option>
+<option value="enumeration">Enumeration</option>
+</select>
 
-    <!-- DIFFICULTY -->
-    <label>Difficulty</label>
-    <select name="difficulty" required>
-        <option value="">-- Choose Difficulty --</option>
-        <option value="easy" <?= ($selectedDifficulty=="easy")?'selected':'' ?>>Easy</option>
-        <option value="medium" <?= ($selectedDifficulty=="medium")?'selected':'' ?>>Medium</option>
-        <option value="hard" <?= ($selectedDifficulty=="hard")?'selected':'' ?>>Hard</option>
-    </select>
-
-    <!-- TYPE -->
-    <label>Question Type</label>
-    <select name="questionType" required>
-        <option value="">-- Choose Type --</option>
-        <option value="multiple_choice" <?= ($selectedType=="multiple_choice")?'selected':'' ?>>Multiple Choice</option>
-        <option value="identification" <?= ($selectedType=="identification")?'selected':'' ?>>Identification</option>
-        <option value="enumeration" <?= ($selectedType=="enumeration")?'selected':'' ?>>Enumeration</option>
-    </select>
-
-    <button type="submit">Start Quiz</button>
+<button type="submit">Start Quiz</button>
 
 </div>
 </form>
 
-<!-- =========================
-     QUESTIONS
-========================= -->
-<?php if ($questions && $selectedLesson && $selectedDifficulty && $selectedType): ?>
+<!-- QUIZ FORM (POST) -->
+<?php if ($questions && $questions->num_rows > 0): ?>
 
 <form method="POST" action="submit-quiz.php">
 
-    <input type="hidden" name="subject" value="<?= $selectedSubject ?>">
-    <input type="hidden" name="lessonID" value="<?= $selectedLesson ?>">
-    <input type="hidden" name="difficulty" value="<?= $selectedDifficulty ?>">
-    <input type="hidden" name="questionType" value="<?= $selectedType ?>">
+<!-- CSRF MUST BE INSIDE POST FORM -->
+<input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+<input type="hidden" name="lessonID" value="<?= $selectedLesson ?>">
 
-    <div class="box">
+<div class="box">
 
-        <?php while ($q = $questions->fetch_assoc()) { ?>
+<?php while ($q = $questions->fetch_assoc()): ?>
 
-            <div style="margin-bottom:15px; padding:10px; border:1px solid #ddd;">
-                <p><b><?= htmlspecialchars($q['questionText']) ?></b></p>
+<div class="question-box">
 
-                <input type="hidden" name="questionID[]" value="<?= $q['questionID'] ?>">
-                <input type="text" name="answer[]" placeholder="Your answer" required>
-            </div>
+<p><b><?= htmlspecialchars($q['questionText']) ?></b></p>
 
-        <?php } ?>
+<input type="hidden" name="questionID[]" value="<?= $q['questionID'] ?>">
 
-        <button type="submit">Submit Quiz</button>
+<?php if ($q['questionType'] === 'multiple_choice'): ?>
 
-    </div>
+<div class="choice">
+<label>
+<input type="radio" name="answer[<?= $q['questionID'] ?>]" value="A" required>
+A. <?= htmlspecialchars($q['choiceA']) ?>
+</label>
+</div>
+
+<div class="choice">
+<label>
+<input type="radio" name="answer[<?= $q['questionID'] ?>]" value="B">
+B. <?= htmlspecialchars($q['choiceB']) ?>
+</label>
+</div>
+
+<div class="choice">
+<label>
+<input type="radio" name="answer[<?= $q['questionID'] ?>]" value="C">
+C. <?= htmlspecialchars($q['choiceC']) ?>
+</label>
+</div>
+
+<div class="choice">
+<label>
+<input type="radio" name="answer[<?= $q['questionID'] ?>]" value="D">
+D. <?= htmlspecialchars($q['choiceD']) ?>
+</label>
+</div>
+
+<?php else: ?>
+
+<input type="text" name="answer[<?= $q['questionID'] ?>]" required>
+
+<?php endif; ?>
+
+</div>
+
+<?php endwhile; ?>
+
+<button type="submit">Submit Quiz</button>
+
+</div>
 
 </form>
 

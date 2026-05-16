@@ -1,11 +1,13 @@
 <?php
+
 session_start();
 require_once '../../backend/database.php';
 
-if (!isset($_SESSION['userID'])) {
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
+
 
 /* =========================
    ADD SUBJECT
@@ -189,8 +191,10 @@ $result = $stmt->get_result();
         <td><?= htmlspecialchars($row['description']) ?></td>
         <td><?= $row['date_created'] ?></td>
         <td>
-            <a class="btn edit" href="edit-subject.php?id=<?= $row['subjectID'] ?>">Edit</a>
-
+            <a class="btn edit"
+   href="./edit-subject.php?id=<?= $row['subjectID'] ?>">
+   Edit
+</a>
             <a class="btn delete"
                href="subjects.php?delete=<?= $row['subjectID'] ?>"
                onclick="return confirm('Delete this subject?')">
@@ -201,6 +205,6 @@ $result = $stmt->get_result();
     <?php } ?>
 
 </table>
-
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 </body>
 </html>

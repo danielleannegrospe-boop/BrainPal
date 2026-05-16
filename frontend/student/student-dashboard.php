@@ -1,19 +1,19 @@
 <?php
-
 session_start();
+require_once '../../backend/database.php';
 
-// CHECK IF LOGGED IN
-if (!isset($_SESSION['userID'])) {
+/* =========================
+   🔐 AUTH GUARD
+========================= */
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header("Location: ../auth/login.php");
     exit();
 }
 
-// CHECK ROLE
-if ($_SESSION['role'] !== 'student') {
-    header("Location: ../auth/login.php");
-    exit();
-}
-
+/* =========================
+   SAFE NAME DISPLAY
+========================= */
+$name = $_SESSION['name'] ?? 'Student';
 ?>
 
 <!DOCTYPE html>
@@ -22,20 +22,15 @@ if ($_SESSION['role'] !== 'student') {
     <title>Student Dashboard</title>
 
     <style>
-
         body{
             font-family: Arial;
             margin: 20px;
             background: #f5f5f5;
         }
 
-        h1{
-            margin-bottom: 5px;
-        }
+        h1{ margin-bottom: 5px; }
 
-        .welcome{
-            margin-bottom: 20px;
-        }
+        .welcome{ margin-bottom: 20px; }
 
         .grid{
             display: grid;
@@ -68,13 +63,8 @@ if ($_SESSION['role'] !== 'student') {
             color: #555;
         }
 
-        .quiz{
-            border-left: 6px solid #007bff;
-        }
-
-        .records{
-            border-left: 6px solid #28a745;
-        }
+        .quiz{ border-left: 6px solid #007bff; }
+        .records{ border-left: 6px solid #28a745; }
 
         .logout{
             display: inline-block;
@@ -89,9 +79,7 @@ if ($_SESSION['role'] !== 'student') {
         .logout:hover{
             background: #a71d2a;
         }
-
     </style>
-
 </head>
 
 <body>
@@ -100,8 +88,7 @@ if ($_SESSION['role'] !== 'student') {
 
 <div class="welcome">
     <h2>
-        Welcome,
-        <?php echo htmlspecialchars($_SESSION['name']); ?>
+        Welcome, <?= htmlspecialchars($name) ?>
     </h2>
 </div>
 
@@ -109,29 +96,21 @@ if ($_SESSION['role'] !== 'student') {
 <div class="grid">
 
     <!-- TAKE QUIZ -->
-    <a class="card quiz" href="take-quiz.php">
+    <form action="take-quiz.php" method="GET">
+    <input type="hidden" name="start" value="1">
 
-        <div class="title">
-            Take Quiz
-        </div>
-
-        <div class="desc">
-            Start answering available quizzes and lessons.
-        </div>
-
-    </a>
+    <button type="submit" class="card quiz" style="border:none; width:100%; text-align:left;">
+        <div class="title">Take Quiz</div>
+        <div class="desc">Start answering available quizzes and lessons.</div>
+    </button>
+</form>
 
     <!-- QUIZ RECORDS -->
-    <a class="card records" href="quiz-records.php">
-
-        <div class="title">
-            View Quiz Records
-        </div>
-
+    <a class="card records" href="student-quiz-records.php">
+        <div class="title">View Quiz Records</div>
         <div class="desc">
             View your quiz scores, attempts, and detailed quiz results.
         </div>
-
     </a>
 
 </div>
@@ -141,6 +120,6 @@ if ($_SESSION['role'] !== 'student') {
 <a class="logout" href="../auth/logout.php">
     Logout
 </a>
-
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 </body>
 </html>
