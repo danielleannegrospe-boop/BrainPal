@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <<form method="POST">
+    <form method="POST">
 
     <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
