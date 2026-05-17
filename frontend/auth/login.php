@@ -1,118 +1,181 @@
 <?php
-
 session_start();
 require_once '../../backend/database.php';
 
+$error = null;
 
-if (isset($_POST['login'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = $_POST['email'];
+    $email = trim($_POST['email']);
     $password = $_POST['password'];
 
-    $stmt = $conn->prepare("
-        SELECT *
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-    ");
+    if (empty($email) || empty($password)) {
+        $error = "Please fill in all fields";
+    } else {
 
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
+        $stmt = $conn->prepare("
+            SELECT userID, firstName, middleInitial, lastName, suffix, password, role
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+        ");
 
-    $result = $stmt->get_result();
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
 
-    if ($result->num_rows > 0) {
+        $result = $stmt->get_result();
 
-        $user = $result->fetch_assoc();
+        if ($result && $result->num_rows === 1) {
 
-        // VERIFY HASHED PASSWORD
-        if (password_verify($password, $user['password'])) {
+            $user = $result->fetch_assoc();
 
-            session_regenerate_id(true);
+            if (password_verify($password, $user['password'])) {
 
-            $_SESSION['userID'] = $user['userID'];
+                session_regenerate_id(true);
 
-            $_SESSION['name'] =
-                trim(
+                // ✅ IMPORTANT SESSION VALUES
+                $_SESSION['userID'] = (int)$user['userID'];
+                $_SESSION['role'] = $user['role'];
+
+                $_SESSION['name'] = trim(
                     $user['firstName'] . ' ' .
                     $user['middleInitial'] . ' ' .
                     $user['lastName'] . ' ' .
                     $user['suffix']
                 );
 
-            $_SESSION['role'] = $user['role'];
+                // DEBUG (optional)
+                // var_dump($_SESSION); exit;
 
-            // ROLE-BASED REDIRECT
-            if ($user['role'] === 'admin') {
+                // ROLE REDIRECT
+                if ($user['role'] === 'admin') {
+                    header("Location: ../admin/admin-dashboard.php");
+                } else {
+                    header("Location: ../student/student-dashboard.php");
+                }
 
-                header("Location: ../admin/admin-dashboard.php");
+                exit();
 
             } else {
-
-                header("Location: ../student/student-dashboard.php");
+                $error = "Incorrect password";
             }
 
-            exit();
-
         } else {
-            $error = "Wrong password";
+            $error = "User not found";
         }
-
-    } else {
-        $error = "User not found";
     }
 }
-
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Login</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+        }
+
+        .login-container {
+            background: #fff;
+            padding: 40px;
+            width: 100%;
+            max-width: 380px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        }
+
+        input:focus {
+            border-color: #4f46e5;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-login {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn-login:hover {
+            background: #3730a3;
+        }
+
+        .btn-register {
+            background: transparent;
+            border: 1px solid #4f46e5;
+            color: #4f46e5;
+        }
+
+        .error {
+            color: red;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>Login</h2>
+<div class="login-container">
 
-<?php if (isset($error)) : ?>
-    <p style="color:red;">
-        <?php echo $error; ?>
-    </p>
-<?php endif; ?>
+    <h2>Welcome Back 👋</h2>
 
-<form method="POST">
+    <?php if ($error): ?>
+        <div class="error"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
 
-    <input
-        type="email"
-        name="email"
-        placeholder="Email"
-        required
-    >
+    <form method="POST">
 
-    <br><br>
+        <input type="email" name="email" placeholder="Email" required>
 
-    <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        required
-    >
+        <input type="password" name="password" placeholder="Password" required>
 
-    <br><br>
+        <button type="submit" name="login" class="btn-login">
+            Login
+        </button>
 
-    <button type="submit" name="login">
-        Login
-    </button>
-
-    <br><br>
+    </form>
 
     <a href="register.php">
-        <button type="button">
-            Register
+        <button type="button" class="btn-register">
+            Create Account
         </button>
     </a>
 
-</form>
+</div>
 
 </body>
 </html>

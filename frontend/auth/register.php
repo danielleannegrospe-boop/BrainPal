@@ -96,49 +96,143 @@ if (isset($_POST['register'])) {
 <html>
 <head>
     <title>Register</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+        }
+
+        .register-container {
+            background: #fff;
+            padding: 35px;
+            width: 100%;
+            max-width: 450px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 5px rgba(79,70,229,0.3);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-register {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn-register:hover {
+            background: #3730a3;
+        }
+
+        .error {
+            color: red;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .link {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .link a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+
+        .link a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>Register</h2>
+<div class="register-container">
 
-<?php if (isset($error)) : ?>
-    <p style="color:red;">
-        <?= $error; ?>
-    </p>
-<?php endif; ?>
+    <h2>Create Account ✨</h2>
 
-<form method="POST">
+    <?php if (isset($error)) : ?>
+        <div class="error">
+            <?= $error; ?>
+        </div>
+    <?php endif; ?>
 
-    <!-- CSRF TOKEN -->
-    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+    <form method="POST">
 
-    <input type="text" name="firstName" placeholder="First Name" required>
-    <br><br>
+        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
-    <input type="text" name="middleInitial" placeholder="Middle Initial">
-    <br><br>
+        <div class="row">
+            <input type="text" name="firstName" placeholder="First Name" required>
+            <input type="text" name="middleInitial" placeholder="MI">
+        </div>
 
-    <input type="text" name="lastName" placeholder="Last Name" required>
-    <br><br>
+        <input type="text" name="lastName" placeholder="Last Name" required>
 
-    <input type="text" name="suffix" placeholder="Suffix">
-    <br><br>
+        <input type="text" name="suffix" placeholder="Suffix (Jr, Sr, etc)">
 
-    <input type="email" name="email" placeholder="Email" required>
-    <br><br>
+        <input type="email" name="email" placeholder="Email" required>
 
-    <input type="password" name="password" placeholder="Password" required>
-    <br><br>
+        <input type="password" name="password" placeholder="Password" required>
 
-    <button type="submit" name="register">
-        Register
-    </button>
+        <button type="submit" name="register" class="btn-register">
+            Register
+        </button>
 
-</form>
+    </form>
 
-<br>
+    <div class="link">
+        Already have an account?
+        <a href="login.php">Login here</a>
+    </div>
 
-<a href="login.php">Back to Login</a>
+</div>
 
 </body>
 </html>

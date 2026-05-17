@@ -1,13 +1,13 @@
 <?php
-
 session_start();
+
 require_once '../../backend/database.php';
+$env = require_once '../../backend/pusher.php';
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
-
 
 /* =========================
    DELETE USER (SOFT DELETE)
@@ -70,115 +70,195 @@ $result = $stmt->get_result();
     <title>Admin - Users</title>
 
     <style>
-        body { font-family: Arial; margin: 20px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f4f6fb;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+        }
 
         .top-bar {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         input {
-            padding: 8px;
-            width: 250px;
+            padding: 10px;
+            width: 280px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
         }
 
         button {
-            padding: 8px 12px;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 10px;
+            background: #4f46e5;
+            color: white;
             cursor: pointer;
+        }
+
+        .table-box {
+            background: white;
+            padding: 15px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            min-width: 900px;
         }
 
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
+        th {
+            background: #4f46e5;
+            color: white;
+            padding: 12px;
             text-align: left;
         }
 
-        .admin { color: red; font-weight: bold; }
-        .student { color: green; font-weight: bold; }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f9f9ff;
+        }
+
+        .admin {
+            background: #dc2626;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .student {
+            background: #16a34a;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        a {
+            text-decoration: none;
+            margin-right: 8px;
+        }
+
+        .edit { color: #2563eb; font-weight: bold; }
+        .delete { color: #dc2626; font-weight: bold; }
     </style>
 </head>
 
 <body>
 
-<h2>Users Management</h2>
+<div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2>User Management</h2>
 
-<!-- SEARCH BAR -->
-<div class="top-bar">
-    <form method="GET">
-        <input type="text" name="search" placeholder="Search user..." value="<?= htmlspecialchars($search) ?>">
-        <button type="submit">Search</button>
-    </form>
+    <a href="../admin/admin-dashboard.php"
+       style="
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+       ">
+        ⬅ Back to Dashboard
+    </a>
 </div>
 
-<!-- TABLE -->
-<table>
-    <tr>
-        <th>ID</th>
-        <th>First Name</th>
-        <th>Middle Initial</th>
-        <th>Last Name</th>
-        <th>Suffix</th>
-        <th>Email</th>
-        <th>Role</th>
-        <th>Date Created</th>
-        <th>Actions</th>
-    </tr>
+<div class="container">
 
-    <?php while ($row = $result->fetch_assoc()) { ?>
-    <tr>
-        <td><?= $row['userID'] ?></td>
+    <div class="top-bar">
+        <form method="GET">
+            <input type="text" name="search"
+                   placeholder="Search user..."
+                   value="<?= htmlspecialchars($search) ?>">
+            <button type="submit">Search</button>
+        </form>
+    </div>
 
-        <td><?= htmlspecialchars($row['firstName']) ?></td>
+    <div class="table-box">
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>First Name</th>
+                <th>MI</th>
+                <th>Last Name</th>
+                <th>Suffix</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Date Created</th>
+                <th>Actions</th>
+            </tr>
 
-        <td>
-            <?= $row['middleInitial'] ? htmlspecialchars($row['middleInitial']) : '-' ?>
-        </td>
+            <?php while ($row = $result->fetch_assoc()) { ?>
+            <tr>
+                <td><?= $row['userID'] ?></td>
+                <td><?= htmlspecialchars($row['firstName']) ?></td>
+                <td><?= $row['middleInitial'] ?: '-' ?></td>
+                <td><?= htmlspecialchars($row['lastName']) ?></td>
+                <td><?= $row['suffix'] ?: '-' ?></td>
+                <td><?= htmlspecialchars($row['email']) ?></td>
 
-        <td><?= htmlspecialchars($row['lastName']) ?></td>
+                <td>
+                    <?php if ($row['role'] == 'admin') { ?>
+                        <span class="admin">ADMIN</span>
+                    <?php } else { ?>
+                        <span class="student">STUDENT</span>
+                    <?php } ?>
+                </td>
 
-        <td>
-            <?= $row['suffix'] ? htmlspecialchars($row['suffix']) : '-' ?>
-        </td>
+                <td><?= $row['date_created'] ?></td>
 
-        <td><?= htmlspecialchars($row['email']) ?></td>
-
-        <td>
-            <?php if ($row['role'] == 'admin') { ?>
-                <span class="admin">ADMIN</span>
-            <?php } else { ?>
-                <span class="student">STUDENT</span>
+                <td>
+                    <a class="edit" href="edit-user.php?id=<?= $row['userID'] ?>">Edit</a>
+                    <a class="delete"
+                       href="admin-users.php?delete=<?= $row['userID'] ?>"
+                       onclick="return confirm('Delete this user?')">
+                       Delete
+                    </a>
+                </td>
+            </tr>
             <?php } ?>
-        </td>
+        </table>
+    </div>
+</div>
 
-        <td><?= $row['date_created'] ?></td>
-
-        <td>
-            <a href="edit-user.php?id=<?= $row['userID'] ?>">Edit</a> |
-            <a href="admin-users.php?delete=<?= $row['userID'] ?>"
-               onclick="return confirm('Delete this user?')">
-               Delete
-            </a>
-        </td>
-    </tr>
-    <?php } ?>
-
-</table>
+<!-- =========================
+     PUSHER REAL-TIME
+========================= -->
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 
 <script>
+const PUSHER_APP_KEY = "<?= htmlspecialchars($env['PUSHER_APP_KEY']) ?>";
+const PUSHER_CLUSTER = "<?= htmlspecialchars($env['PUSHER_APP_CLUSTER']) ?>";
 
-Pusher.logToConsole = true;
+Pusher.logToConsole = false;
 
-var PUSHER_KEY = "<?= $env['PUSHER_APP_KEY'] ?>";
-var pusher = new Pusher(PUSHER_KEY, {
-    cluster: 'ap1'
+var pusher = new Pusher(PUSHER_APP_KEY, {
+    cluster: PUSHER_CLUSTER
 });
 
 var channel = pusher.subscribe('user-channel');
@@ -186,14 +266,14 @@ var channel = pusher.subscribe('user-channel');
 channel.bind('user-registered', function(data) {
 
     alert(
-        'New User Registered!\n\n' +
+        '👤 New User Registered!\n\n' +
         'Name: ' + data.name +
         '\nEmail: ' + data.email
     );
 
     location.reload();
 });
-
 </script>
+
 </body>
 </html>

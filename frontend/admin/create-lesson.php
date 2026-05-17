@@ -80,68 +80,159 @@ $result = $conn->query($sql);
     <title>Create Lesson</title>
 
     <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
         }
 
+        body {
+            background: #f4f6fb;
+            color: #333;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+        }
+
+        h2, h3 {
+            margin-bottom: 15px;
+        }
+
+        /* CARD */
         .box {
-            border: 1px solid #ccc;
-            padding: 15px;
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
             margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 13px;
         }
 
         input, textarea, select {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
+            padding: 10px;
+            margin-top: 6px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            outline: none;
+        }
+
+        textarea {
+            resize: none;
         }
 
         button {
-            padding: 10px 15px;
+            margin-top: 15px;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 10px;
+            background: #4f46e5;
+            color: white;
             cursor: pointer;
+            font-weight: bold;
         }
 
+        button:hover {
+            background: #3730a3;
+        }
+
+        /* SUBJECT DESC */
+        #subjectDesc {
+            margin-top: 10px;
+            padding: 12px;
+            background: #f8fafc;
+            border-left: 4px solid #4f46e5;
+            border-radius: 10px;
+            display: none;
+            font-size: 14px;
+        }
+
+        /* TABLE */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
         }
 
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
+        th {
+            background: #4f46e5;
+            color: white;
+            padding: 12px;
+            font-size: 13px;
+            text-align: left;
         }
 
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f9f9ff;
+        }
+
+        /* ACTIONS */
         .actions a {
-            margin-right: 10px;
             text-decoration: none;
+            margin-right: 10px;
+            font-size: 13px;
+            font-weight: bold;
         }
+
+        .actions a:nth-child(1) { color: #2563eb; }
+        .actions a:nth-child(2) { color: #16a34a; }
+        .actions a:nth-child(3) { color: #dc2626; }
+
+        .actions a:hover {
+            opacity: 0.7;
+        }
+
     </style>
 </head>
 
 <body>
 
-<h2>Create Lesson</h2>
+<div class="header">
+    <h2>Create Lesson</h2>
+</div>
+
+<div class="container">
 
 <?php if (isset($success)) : ?>
-    <p style="color:green;"><?= $success ?></p>
+    <p style="color:green; margin-bottom:10px;"><?= $success ?></p>
 <?php endif; ?>
 
 <?php if (isset($error)) : ?>
-    <p style="color:red;"><?= $error ?></p>
+    <p style="color:red; margin-bottom:10px;"><?= $error ?></p>
 <?php endif; ?>
 
+<!-- FORM CARD -->
 <div class="box">
 
     <form method="POST">
 
-        <!-- CSRF TOKEN -->
         <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
-        <!-- SUBJECT -->
         <label>Subject</label>
-
         <select name="subjectID" id="subjectSelect" required onchange="showSubjectDesc(this)">
             <option value="">-- Choose Subject --</option>
 
@@ -162,20 +253,16 @@ $result = $conn->query($sql);
                     <?= htmlspecialchars($sub['subjectName']) ?>
                 </option>
             <?php } ?>
+
         </select>
 
-        <!-- SUBJECT DESCRIPTION -->
-        <div id="subjectDesc"
-             style="margin-top:10px; padding:10px; background:#f5f5f5; display:none;">
-        </div>
+        <div id="subjectDesc"></div>
 
-        <!-- LESSON TITLE -->
         <label>Lesson Title</label>
         <input type="text" name="lessonTitle" required>
 
-        <!-- DESCRIPTION -->
         <label>Lesson Description</label>
-        <textarea name="description"></textarea>
+        <textarea name="description" rows="4"></textarea>
 
         <button type="submit" name="createLesson">
             Create Lesson
@@ -185,84 +272,59 @@ $result = $conn->query($sql);
 
 </div>
 
+<!-- TABLE -->
 <h3>Active Lessons</h3>
 
 <table>
 
-    <tr>
-        <th>ID</th>
-        <th>Subject</th>
-        <th>Title</th>
-        <th>Description</th>
-        <th>Created By</th>
-        <th>Date Created</th>
-        <th>Actions</th>
-    </tr>
+<tr>
+    <th>ID</th>
+    <th>Subject</th>
+    <th>Title</th>
+    <th>Description</th>
+    <th>Created By</th>
+    <th>Date</th>
+    <th>Actions</th>
+</tr>
 
-    <?php while ($row = $result->fetch_assoc()) { ?>
+<?php while ($row = $result->fetch_assoc()) { ?>
 
-    <tr>
+<tr>
+    <td><?= $row['lessonID'] ?></td>
+    <td><?= htmlspecialchars($row['subjectName']) ?></td>
+    <td><?= htmlspecialchars($row['lessonTitle']) ?></td>
+    <td><?= htmlspecialchars($row['lessonDescription']) ?></td>
+    <td><?= htmlspecialchars($row['fullName']) ?></td>
+    <td><?= $row['date_created'] ?></td>
 
-        <td><?= $row['lessonID'] ?></td>
+    <td class="actions">
+        <a href="edit-lesson.php?id=<?= $row['lessonID'] ?>">Edit</a>
+        <a href="add-question.php?lessonID=<?= $row['lessonID'] ?>">Questions</a>
+        <a href="delete-lesson.php?id=<?= $row['lessonID'] ?>">Delete</a>
+    </td>
+</tr>
 
-        <td><?= htmlspecialchars($row['subjectName']) ?></td>
-
-        <td><?= htmlspecialchars($row['lessonTitle']) ?></td>
-
-        <td><?= htmlspecialchars($row['lessonDescription']) ?></td>
-
-        <td><?= htmlspecialchars($row['fullName']) ?></td>
-
-        <td><?= $row['date_created'] ?></td>
-
-        <td class="actions">
-
-            <a href="edit-lesson.php?id=<?= $row['lessonID'] ?>">
-                Edit
-            </a>
-
-            <a href="add-question.php?lessonID=<?= $row['lessonID'] ?>">
-                Add Question
-            </a>
-
-            <a href="delete-lesson.php?id=<?= $row['lessonID'] ?>"
-               onclick="return confirm('Delete this lesson?')">
-                Delete
-            </a>
-
-        </td>
-
-    </tr>
-
-    <?php } ?>
+<?php } ?>
 
 </table>
 
-<script>
+</div>
 
+<script>
 const subjectDescriptions = <?= json_encode($subjectData) ?>;
 
 function showSubjectDesc(select) {
-
     const descBox = document.getElementById('subjectDesc');
+    const id = select.value;
 
-    const subjectID = select.value;
-
-    if (subjectDescriptions[subjectID]) {
-
+    if (subjectDescriptions[id]) {
         descBox.style.display = 'block';
-
-        descBox.innerHTML =
-            "<strong>Description:</strong><br>" +
-            subjectDescriptions[subjectID];
-
+        descBox.innerHTML = "<b>Description:</b><br>" + subjectDescriptions[id];
     } else {
-
         descBox.style.display = 'none';
         descBox.innerHTML = '';
     }
 }
-
 </script>
 
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>

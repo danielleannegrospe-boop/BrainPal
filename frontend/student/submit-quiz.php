@@ -2,205 +2,226 @@
 session_start();
 require_once '../../backend/database.php';
 require_once '../../backend/pusher.php';
-require_once '../../backend/csrf.php';
 
-$csrf = generateCSRF();
-
-/* =========================
-   🔐 AUTH CHECK
-========================= */
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header("Location: ../auth/login.php");
     exit();
 }
 
-$userID = $_SESSION['userID'];
-
-/* =========================
-   🔥 CSRF + FLOW PROTECTION
-========================= */
-if (!isset($_POST['lessonID'], $_POST['questionID'], $_POST['answer'])) {
-    header("Location: take-quiz.php");
-    exit();
-}
-
-// CSRF VALIDATION
-if (!validateCSRF($_POST['csrf_token'] ?? '')) {
-    die("CSRF validation failed");
-}
-
+$userID = (int) $_SESSION['userID'];
 $lessonID = (int) $_POST['lessonID'];
-$questionIDs = $_POST['questionID'];
-$answers = $_POST['answer'];
+$answers = $_POST['answers'] ?? [];
 
-/* =========================
-   INIT SCORE
-========================= */
-$score = 0;
-$total = count($questionIDs);
+$conn->begin_transaction();
 
-/* =========================
-   GET QUESTIONS DATA
-========================= */
-$stmt = $conn->prepare("
-    SELECT questionID, correctAnswer, points, questionType
-    FROM questions
-    WHERE questionID = ?
-");
+try {
 
-$questionsMap = [];
+    /* =========================
+       GET QUESTIONS
+    ========================= */
+    $q = $conn->prepare("
+        SELECT questionID, correctAnswer
+        FROM questions
+        WHERE lessonID = ? AND date_deleted IS NULL
+    ");
+    $q->bind_param("i", $lessonID);
+    $q->execute();
+    $res = $q->get_result();
 
-foreach ($questionIDs as $qid) {
+    $questions = [];
+    while ($row = $res->fetch_assoc()) {
+        $questions[$row['questionID']] = $row['correctAnswer'];
+    }
 
-    $qid = (int) $qid;
+    $totalQuestions = count($questions);
+    $score = 0;
 
-    $stmt->bind_param("i", $qid);
+    /* =========================
+       CREATE ATTEMPT
+    ========================= */
+    $stmt = $conn->prepare("
+        INSERT INTO quiz_attempts (studentID, lessonID, totalQuestions, score)
+        VALUES (?, ?, ?, 0)
+    ");
+    $stmt->bind_param("iii", $userID, $lessonID, $totalQuestions);
     $stmt->execute();
 
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
+    $attemptID = $stmt->insert_id;
 
-    if ($row) {
-        $questionsMap[$qid] = $row;
+    /* =========================
+       SAVE ANSWERS
+    ========================= */
+    $insertAns = $conn->prepare("
+        INSERT INTO attempt_answers (attemptID, questionID, studentAnswer, isCorrect)
+        VALUES (?, ?, ?, ?)
+    ");
+
+    foreach ($questions as $qid => $correct) {
+
+        $studentAnswer = trim($answers[$qid] ?? '');
+
+        $isCorrect = (strcasecmp($studentAnswer, trim($correct)) === 0) ? 1 : 0;
+
+        if ($isCorrect) $score++;
+
+        $insertAns->bind_param("iisi", $attemptID, $qid, $studentAnswer, $isCorrect);
+        $insertAns->execute();
     }
-}
 
-$stmt->close();
-
-/* =========================
-   CALCULATE SCORE
+   /* =========================
+   UPDATE SCORE
 ========================= */
-foreach ($questionIDs as $qid) {
-
-    $qid = (int) $qid;
-
-    $userAnswer = trim($answers[$qid] ?? '');
-    $correctAnswer = trim($questionsMap[$qid]['correctAnswer'] ?? '');
-    $points = (int) ($questionsMap[$qid]['points'] ?? 1);
-    $type = $questionsMap[$qid]['questionType'];
-
-    $userLower = strtolower($userAnswer);
-    $correctLower = strtolower($correctAnswer);
-
-    if ($type === 'multiple_choice') {
-
-        if ($userLower === $correctLower) {
-            $score += $points;
-        }
-
-    } elseif ($type === 'enumeration') {
-
-        $userArray = array_map('trim', explode(',', $userLower));
-        $correctArray = array_map('trim', explode(',', $correctLower));
-
-        sort($userArray);
-        sort($correctArray);
-
-        if ($userArray == $correctArray) {
-            $score += $points;
-        }
-
-    } else {
-
-        if ($userLower === $correctLower) {
-            $score += $points;
-        }
-    }
-}
-
-/* =========================
-   SAVE ATTEMPT
-========================= */
-$stmt = $conn->prepare("
-    INSERT INTO quiz_attempts
-    (studentID, lessonID, totalQuestions, score)
-    VALUES (?, ?, ?, ?)
+$update = $conn->prepare("
+    UPDATE quiz_attempts
+    SET score = ?
+    WHERE attemptID = ?
 ");
-
-$stmt->bind_param("iiii", $userID, $lessonID, $total, $score);
-$stmt->execute();
-
-$attemptID = $conn->insert_id;
+$update->bind_param("ii", $score, $attemptID);
+$update->execute();
 
 /* =========================
-   SAVE ANSWERS
+   CALCULATION FOR UI + PUSHER
 ========================= */
-$stmt2 = $conn->prepare("
-    INSERT INTO attempt_answers
-    (attemptID, questionID, studentAnswer, isCorrect)
-    VALUES (?, ?, ?, ?)
-");
+$percent = ($totalQuestions > 0)
+    ? round(($score / $totalQuestions) * 100, 2)
+    : 0;
 
-foreach ($questionIDs as $qid) {
+$status = ($percent >= 75) ? "PASSED" : "FAILED";
+$color = ($percent >= 75) ? "#16a34a" : "#dc2626";
 
-    $qid = (int) $qid;
+$conn->commit();
 
-    $userAnswer = trim($answers[$qid] ?? '');
-    $correctAnswer = trim($questionsMap[$qid]['correctAnswer'] ?? '');
-    $type = $questionsMap[$qid]['questionType'];
+/* =========================
+   PUSHER EVENT (REAL-TIME)
+========================= */
+$data = [
+    'attemptID' => $attemptID,
+    'studentID' => $userID,
+    'lessonID' => $lessonID,
+    'score' => $score,
+    'total' => $totalQuestions,
+    'percent' => $percent,
+    'status' => $status
+];
 
-    $userLower = strtolower($userAnswer);
-    $correctLower = strtolower($correctAnswer);
+$pusher->trigger('quiz-channel', 'quiz-submitted', $data);
 
-    $isCorrect = 0;
-
-    if ($type === 'multiple_choice') {
-        $isCorrect = ($userLower === $correctLower) ? 1 : 0;
-    }
-    elseif ($type === 'enumeration') {
-
-        $userArray = array_map('trim', explode(',', $userLower));
-        $correctArray = array_map('trim', explode(',', $correctLower));
-
-        sort($userArray);
-        sort($correctArray);
-
-        $isCorrect = ($userArray == $correctArray) ? 1 : 0;
-
-    } else {
-        $isCorrect = ($userLower === $correctLower) ? 1 : 0;
-    }
-
-    $stmt2->bind_param(
-        "iisi",
-        $attemptID,
-        $qid,
-        $userAnswer,
-        $isCorrect
-    );
-
-    $stmt2->execute();
+} catch (Exception $e) {
+    $conn->rollback();
+    die("Error submitting quiz: " . $e->getMessage());
 }
 
-$stmt2->close();
-
 /* =========================
-   SESSION FLAGS
+   CALCULATION FOR UI
 ========================= */
-$_SESSION['quizCompleted'] = true;
-$_SESSION['lastAttemptID'] = $attemptID;
+$percent = ($totalQuestions > 0)
+    ? round(($score / $totalQuestions) * 100, 2)
+    : 0;
 
-/* =========================
-   REALTIME QUIZ SUBMISSION
-========================= */
-$pusher->trigger(
-    'quiz-channel',
-    'quiz-submitted',
-    [
-        'studentID' => $userID,
-        'attemptID' => $attemptID,
-        'score' => $score,
-        'total' => $total,
-        'percentage' => ($total > 0)
-            ? round(($score / $total) * 100, 2)
-            : 0,
-        'submittedAt' => date('Y-m-d H:i:s')
-    ]
-);
-
-/* =========================
-   REDIRECT
-========================= */
-header("Location: quiz-result.php?attemptID=$attemptID");
-exit();
+$status = ($percent >= 75) ? "PASSED" : "FAILED";
+$color = ($percent >= 75) ? "#16a34a" : "#dc2626";
 ?>
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Quiz Submitted</title>
+
+<style>
+body{
+    margin:0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    color:white;
+}
+
+.card{
+    background:white;
+    color:#333;
+    padding:30px;
+    border-radius:16px;
+    width:400px;
+    text-align:center;
+    box-shadow:0 15px 40px rgba(0,0,0,0.2);
+}
+
+h1{
+    margin-bottom:10px;
+}
+
+.score{
+    font-size:40px;
+    font-weight:bold;
+    margin:10px 0;
+    color:<?= $color ?>;
+}
+
+.badge{
+    display:inline-block;
+    padding:6px 12px;
+    border-radius:8px;
+    color:white;
+    background:<?= $color ?>;
+    font-weight:bold;
+    margin-bottom:15px;
+}
+
+.btn{
+    display:inline-block;
+    margin-top:15px;
+    padding:10px 15px;
+    background:#4f46e5;
+    color:white;
+    text-decoration:none;
+    border-radius:8px;
+}
+
+.btn:hover{
+    background:#3730a3;
+}
+
+.small{
+    color:gray;
+    font-size:14px;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <h1>Quiz Submitted 🎉</h1>
+
+    <div class="score"><?= $score ?> / <?= $totalQuestions ?></div>
+
+    <div class="badge"><?= $status ?></div>
+
+    <div style="margin-top:10px;">
+        <?= $percent ?>%
+    </div>
+
+    <a class="btn" href="student-view-attempt.php?attemptID=<?= $attemptID ?>">
+        View Full Result
+    </a>
+
+    <div class="small">
+        Redirecting to dashboard in 5 seconds...
+    </div>
+
+</div>
+
+<script>
+setTimeout(() => {
+    window.location.href =
+        "student-view-attempt.php?attemptID=<?= $attemptID ?>";
+}, 5000);
+</script>
+
+</body>
+</html>

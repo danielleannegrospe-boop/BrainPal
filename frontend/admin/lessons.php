@@ -80,55 +80,112 @@ $result = $stmt->get_result();
     <title>Lessons Management</title>
 
     <style>
-
-        body {
-            font-family: Arial;
-            margin: 20px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
         }
 
+        body {
+            background: #f4f6fb;
+            color: #333;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+        }
+
+        /* TOP BAR */
         .top-bar {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-bottom: 15px;
             align-items: center;
         }
 
-        select,
+        select, button {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
         button {
-            padding: 8px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #3730a3;
+        }
+
+        .add-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+
+        .add-btn:hover {
+            background: #1e7e34;
+        }
+
+        /* TABLE CARD */
+        .table-box {
+            background: white;
+            padding: 15px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
         }
 
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 10px;
+        th, td {
+            border-bottom: 1px solid #eee;
+            padding: 12px;
             text-align: left;
-        }
-
-        .btn {
-            padding: 5px 8px;
-            text-decoration: none;
-            color: white;
-            border-radius: 4px;
             font-size: 14px;
         }
 
-        .edit {
-            background: #007bff;
+        th {
+            background: #f9fafb;
         }
 
-        .delete {
-            background: #dc3545;
+        /* ACTION BUTTONS */
+        .btn {
+            padding: 6px 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            color: white;
+            display: inline-block;
+            margin-right: 5px;
         }
 
-        .add {
-            background: #28a745;
+        .edit { background: #007bff; }
+        .delete { background: #dc3545; }
+        .addq { background: #28a745; }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        .title {
+            margin-bottom: 15px;
         }
 
     </style>
@@ -136,7 +193,25 @@ $result = $stmt->get_result();
 
 <body>
 
-<h2>Lessons Management</h2>
+<div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2>Lessons Management</h2>
+
+    <a href="../admin/admin-dashboard.php"
+       style="
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+       ">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+<div class="container">
+
+<h3 class="title">All Lessons</h3>
 
 <!-- FILTER -->
 <form method="GET" class="top-bar">
@@ -160,17 +235,17 @@ $result = $stmt->get_result();
 
     </select>
 
-    <button type="submit">
-        Filter
-    </button>
+    <button type="submit">Filter</button>
 
-    <a class="btn add" href="create-lesson.php">
+    <a class="add-btn" href="create-lesson.php">
         + Add Lesson
     </a>
 
 </form>
 
 <!-- TABLE -->
+<div class="table-box">
+
 <table>
 
     <tr>
@@ -185,58 +260,40 @@ $result = $stmt->get_result();
     <?php while ($row = $result->fetch_assoc()) { ?>
 
     <tr>
-
-        <td>
-            <?= $row['lessonID'] ?>
-        </td>
-
-        <td>
-            <?= htmlspecialchars($row['subjectName']) ?>
-        </td>
-
-        <td>
-            <?= htmlspecialchars($row['lessonTitle']) ?>
-        </td>
-
-        <td>
-            <?= htmlspecialchars($row['lessonDescription']) ?>
-        </td>
-
-        <td>
-            <?= $row['date_created'] ?>
-        </td>
+        <td><?= $row['lessonID'] ?></td>
+        <td><?= htmlspecialchars($row['subjectName']) ?></td>
+        <td><?= htmlspecialchars($row['lessonTitle']) ?></td>
+        <td><?= htmlspecialchars($row['lessonDescription']) ?></td>
+        <td><?= $row['date_created'] ?></td>
 
         <td>
 
-            <a
-                class="btn add"
-                href="add-question.php?lessonID=<?= $row['lessonID'] ?>"
-            >
-                Add Question
+            <a class="btn addq"
+               href="add-question.php?lessonID=<?= $row['lessonID'] ?>">
+                Add
             </a>
 
-            <a
-                class="btn edit"
-                href="edit-lesson.php?id=<?= $row['lessonID'] ?>"
-            >
+            <a class="btn edit"
+               href="edit-lesson.php?id=<?= $row['lessonID'] ?>">
                 Edit
             </a>
 
-            <a
-                class="btn delete"
-                href="lessons.php?delete=<?= $row['lessonID'] ?>"
-                onclick="return confirm('Delete this lesson?')"
-            >
+            <a class="btn delete"
+               href="lessons.php?delete=<?= $row['lessonID'] ?>"
+               onclick="return confirm('Delete this lesson?')">
                 Delete
             </a>
 
         </td>
-
     </tr>
 
     <?php } ?>
 
 </table>
+
+</div>
+
+</div>
 
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 

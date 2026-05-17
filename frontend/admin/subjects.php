@@ -90,67 +90,161 @@ $result = $stmt->get_result();
     <title>Subjects Management</title>
 
     <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
         }
 
+        body {
+            background: #f4f6fb;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+        }
+
+        /* BOX */
         .box {
-            border: 1px solid #ccc;
+            background: white;
             padding: 15px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
             margin-bottom: 20px;
+        }
+
+        h2, h3 {
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
         }
 
         input, textarea {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
+            padding: 10px;
+            margin-top: 6px;
+            margin-bottom: 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
         }
 
         button {
-            padding: 8px 12px;
+            padding: 10px 14px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
+        button:hover {
+            background: #3730a3;
         }
 
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-        }
-
+        /* SEARCH BAR */
         .top-bar {
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
             margin-bottom: 15px;
         }
 
+        /* TABLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border-bottom: 1px solid #eee;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f9fafb;
+        }
+
+        /* BUTTONS */
         .btn {
+            padding: 6px 10px;
+            border-radius: 6px;
             text-decoration: none;
-            padding: 5px 10px;
-            border-radius: 4px;
             color: white;
+            font-size: 13px;
+            margin-right: 5px;
         }
 
         .edit { background: #007bff; }
         .delete { background: #dc3545; }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        .success {
+            color: green;
+            margin-bottom: 10px;
+        }
+
+        .error {
+            color: red;
+            margin-bottom: 10px;
+        }
+
+        form.search {
+            display: flex;
+            gap: 10px;
+        }
+
+        form.search input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
     </style>
 </head>
 
 <body>
 
-<h2>Subjects Management</h2>
+<div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2>Subjects Management</h2>
+
+    <a href="../admin/admin-dashboard.php"
+       style="
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+       ">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+<div class="container">
 
 <!-- SUCCESS / ERROR -->
-<?php if (isset($success)) echo "<p style='color:green;'>$success</p>"; ?>
-<?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
+<?php if (isset($success)) echo "<p class='success'>$success</p>"; ?>
+<?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
 
 <!-- ADD SUBJECT -->
 <div class="box">
+
     <h3>Add Subject</h3>
 
     <form method="POST">
@@ -161,21 +255,33 @@ $result = $stmt->get_result();
         <label>Description</label>
         <textarea name="description"></textarea>
 
-        <button type="submit" name="addSubject">Add Subject</button>
+        <button type="submit" name="addSubject">
+            Add Subject
+        </button>
 
     </form>
+
 </div>
 
 <!-- SEARCH -->
 <div class="top-bar">
-    <form method="GET">
-        <input type="text" name="search" placeholder="Search subject..." value="<?= htmlspecialchars($search) ?>">
+
+    <form method="GET" class="search">
+        <input type="text"
+               name="search"
+               placeholder="Search subject..."
+               value="<?= htmlspecialchars($search) ?>">
+
         <button type="submit">Search</button>
     </form>
+
 </div>
 
 <!-- TABLE -->
+<div class="box">
+
 <table>
+
     <tr>
         <th>ID</th>
         <th>Subject Name</th>
@@ -185,26 +291,36 @@ $result = $stmt->get_result();
     </tr>
 
     <?php while ($row = $result->fetch_assoc()) { ?>
+
     <tr>
         <td><?= $row['subjectID'] ?></td>
         <td><?= htmlspecialchars($row['subjectName']) ?></td>
         <td><?= htmlspecialchars($row['description']) ?></td>
         <td><?= $row['date_created'] ?></td>
+
         <td>
             <a class="btn edit"
-   href="./edit-subject.php?id=<?= $row['subjectID'] ?>">
-   Edit
-</a>
+               href="./edit-subject.php?id=<?= $row['subjectID'] ?>">
+                Edit
+            </a>
+
             <a class="btn delete"
                href="subjects.php?delete=<?= $row['subjectID'] ?>"
                onclick="return confirm('Delete this subject?')">
-               Delete
+                Delete
             </a>
         </td>
     </tr>
+
     <?php } ?>
 
 </table>
+
+</div>
+
+</div>
+
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+
 </body>
 </html>

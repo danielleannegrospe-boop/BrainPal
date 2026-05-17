@@ -3,7 +3,7 @@ session_start();
 require_once '../../backend/database.php';
 
 /* =========================
-   🔐 AUTH CHECK
+   AUTH CHECK
 ========================= */
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header("Location: ../auth/login.php");
@@ -11,30 +11,23 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
 }
 
 /* =========================
-   🔥 RESULT FLOW PROTECTION (IMPORTANT FIX)
-   ONLY ALLOW ACCESS IF QUIZ WAS JUST SUBMITTED
+   GET ATTEMPT ID (SAFE)
 ========================= */
-if (!isset($_SESSION['quizCompleted']) || $_SESSION['quizCompleted'] !== true) {
+$attemptID = isset($_GET['attemptID']) ? (int) $_GET['attemptID'] : 0;
+
+if ($attemptID <= 0) {
     header("Location: student-dashboard.php");
     exit();
 }
 
-/* =========================
-   GET ATTEMPT ID (FROM SESSION, NOT URL SAFE ACCESS)
-========================= */
-if (!isset($_GET['attemptID'])) {
-    header("Location: student-dashboard.php");
-    exit();
-}
-
-$attemptID = $_GET['attemptID'];
 $userID = $_SESSION['userID'];
 
 /* =========================
-   🔐 SECURITY CHECK (OWNERSHIP)
+   GET ATTEMPT (SECURE)
 ========================= */
 $stmt = $conn->prepare("
-    SELECT * FROM quiz_attempts
+    SELECT attemptID, studentID, totalQuestions, score
+    FROM quiz_attempts
     WHERE attemptID = ? AND studentID = ?
 ");
 $stmt->bind_param("ii", $attemptID, $userID);
@@ -47,7 +40,7 @@ if (!$attempt) {
 }
 
 /* =========================
-   GET ANSWERS + QUESTIONS
+   GET ANSWERS
 ========================= */
 $stmt2 = $conn->prepare("
     SELECT 
@@ -66,18 +59,13 @@ $stmt2->execute();
 $answers = $stmt2->get_result();
 
 /* =========================
-   SCORE COMPUTATION
+   SAFE CALCULATION
 ========================= */
-$total = $attempt['totalQuestions'];
-$score = $attempt['score'];
+$total = (int) ($attempt['totalQuestions'] ?? 0);
+$score = (int) ($attempt['score'] ?? 0);
 
-$percentage = ($total > 0) ? ($score / $total) * 100 : 0;
-$passed = ($percentage >= 75) ? "PASSED" : "FAILED";
-
-/* =========================
-   🔥 ONCE VIEWED, LOCK AGAIN
-========================= */
-unset($_SESSION['quizCompleted']);
+$percentage = ($total > 0) ? round(($score / $total) * 100, 2) : 0;
+$passed = ($percentage >= 75);
 ?>
 
 <!DOCTYPE html>
@@ -86,90 +74,190 @@ unset($_SESSION['quizCompleted']);
     <title>Quiz Result</title>
 
     <style>
-        body { font-family: Arial; margin: 20px; background:#f5f5f5; }
-
-        .box {
-            background:white;
-            border: 1px solid #ddd;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 10px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial;
         }
 
-        .correct { color: green; font-weight: bold; }
-        .wrong { color: red; font-weight: bold; }
+        body {
+            background: #f4f6fb;
+        }
 
-        a {
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 15px;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .stat h3 {
+            font-size: 22px;
+        }
+
+        .badge {
             display: inline-block;
-            margin-top: 10px;
-            padding: 8px 12px;
-            background:#007bff;
-            color:white;
-            text-decoration:none;
-            border-radius:5px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+            margin-top: 5px;
         }
 
-        a:hover {
-            background:#0056b3;
+        .pass { background: #16a34a; }
+        .fail { background: #dc2626; }
+
+        .question {
+            border-left: 6px solid #ddd;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .correct { border-left-color: #16a34a; }
+        .wrong { border-left-color: #dc2626; }
+
+        .meta {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #444;
+        }
+
+        .btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 14px;
+            background: #4f46e5;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+        .btn:hover {
+            background: #3730a3;
+        }
+
+        .empty {
+            padding: 15px;
+            color: gray;
         }
     </style>
 </head>
 
 <body>
 
-<h2>Quiz Result</h2>
+<div class="header">
+    <h2>Quiz Result</h2>
+</div>
 
-<!-- =========================
-     SUMMARY
-========================= -->
-<div class="box">
+<div class="container">
 
+<!-- SUMMARY -->
+<div class="card">
     <h3>Score Summary</h3>
 
-    <p><b>Score:</b> <?php echo $score; ?> / <?php echo $total; ?></p>
+    <div class="grid">
 
-    <p><b>Percentage:</b> <?php echo round($percentage, 2); ?>%</p>
-
-    <p>
-        <b>Status:</b>
-        <span style="color:<?php echo ($passed == 'PASSED') ? 'green' : 'red'; ?>">
-            <?php echo $passed; ?>
-        </span>
-    </p>
-
-</div>
-
-<!-- =========================
-     ANSWER REVIEW
-========================= -->
-<div class="box">
-
-    <h3>Answer Review</h3>
-
-    <?php while ($row = $answers->fetch_assoc()) { ?>
-
-        <div style="margin-bottom:15px; padding:10px; border:1px solid #eee; border-radius:8px;">
-
-            <p><b>Question:</b> <?php echo htmlspecialchars($row['questionText']); ?></p>
-
-            <p>
-                <b>Your Answer:</b>
-                <span class="<?php echo $row['isCorrect'] ? 'correct' : 'wrong'; ?>">
-                    <?php echo htmlspecialchars($row['studentAnswer']); ?>
-                </span>
-            </p>
-
-            <p><b>Correct Answer:</b> <?php echo htmlspecialchars($row['correctAnswer']); ?></p>
-
-            <p><b>Points:</b> <?php echo $row['points']; ?></p>
-
+        <div class="stat">
+            <h3><?= $score ?></h3>
+            <small>Score</small>
         </div>
 
-    <?php } ?>
+        <div class="stat">
+            <h3><?= $total ?></h3>
+            <small>Total Questions</small>
+        </div>
+
+        <div class="stat">
+            <h3><?= $percentage ?>%</h3>
+            <small>Percentage</small>
+        </div>
+
+        <div class="stat">
+            <h3><?= $passed ? "PASSED" : "FAILED" ?></h3>
+            <span class="badge <?= $passed ? 'pass' : 'fail' ?>">
+                Status
+            </span>
+        </div>
+
+    </div>
+</div>
+
+<!-- ANSWERS -->
+<div class="card">
+    <h3>Answer Review</h3>
+
+    <?php if ($answers->num_rows > 0): ?>
+
+        <?php while ($row = $answers->fetch_assoc()): ?>
+
+            <div class="question <?= $row['isCorrect'] ? 'correct' : 'wrong' ?>">
+
+                <div><b>Question:</b> <?= htmlspecialchars($row['questionText'] ?? '') ?></div>
+
+                <div class="meta">
+                    <b>Your Answer:</b> <?= htmlspecialchars($row['studentAnswer'] ?? '') ?>
+                </div>
+
+                <div class="meta">
+                    <b>Correct Answer:</b> <?= htmlspecialchars($row['correctAnswer'] ?? '') ?>
+                </div>
+
+                <div class="meta">
+                    <b>Points:</b> <?= $row['points'] ?? 0 ?>
+                </div>
+
+                <div class="meta">
+                    <?= $row['isCorrect'] ? "✔ Correct" : "✘ Wrong" ?>
+                </div>
+
+            </div>
+
+        <?php endwhile; ?>
+
+    <?php else: ?>
+
+        <div class="empty">
+            No answers found for this attempt.
+        </div>
+
+    <?php endif; ?>
 
 </div>
 
-<a href="take-quiz.php">Take Another Quiz</a>
-<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+<a class="btn" href="student-dashboard.php">
+    Back to Dashboard
+</a>
+
+</div>
+
 </body>
 </html>

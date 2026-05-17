@@ -78,55 +78,101 @@ $answers = $stmt2->get_result();
     <title>Attempt Details</title>
 
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
         body {
-            font-family: Arial;
-            margin: 20px;
+            background: #f4f6fb;
         }
 
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: white;
+            padding: 18px 25px;
+        }
+
+        .container {
+            padding: 25px;
+        }
+
+        /* INFO CARD */
         .box {
-            background: #f5f5f5;
+            background: white;
             padding: 15px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
             margin-bottom: 20px;
-            border-radius: 8px;
         }
 
-        .question {
-            border: 1px solid #ccc;
-            padding: 15px;
+        h2, h3 {
             margin-bottom: 10px;
-            border-radius: 8px;
+        }
+
+        /* QUESTION CARD */
+        .question {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+            border-left: 6px solid transparent;
         }
 
         .correct {
-            border-left: 6px solid green;
+            border-left-color: #16a34a;
         }
 
         .wrong {
-            border-left: 6px solid red;
+            border-left-color: #dc2626;
         }
 
         .title {
             font-weight: bold;
+            margin-bottom: 8px;
         }
 
         .meta {
-            margin-bottom: 5px;
-            color: #555;
+            margin-top: 4px;
+            font-size: 14px;
+            color: #444;
         }
+
+        .badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 6px;
+            color: white;
+        }
+
+        .ok { background: #16a34a; }
+        .bad { background: #dc2626; }
+
     </style>
 </head>
 
 <body>
 
-<h2>Quiz Attempt Details</h2>
+<div class="header">
+    <h2>Quiz Attempt Details</h2>
+</div>
+
+<div class="container">
 
 <!-- ATTEMPT INFO -->
 <div class="box">
-    <p><b>Student:</b> <?= $attempt['firstName'] . ' ' . $attempt['lastName'] ?></p>
-    <p><b>Subject:</b> <?= $attempt['subjectName'] ?></p>
-    <p><b>Lesson:</b> <?= $attempt['lessonTitle'] ?></p>
+
+    <p><b>Student:</b> <?= htmlspecialchars($attempt['firstName'] . ' ' . $attempt['lastName']) ?></p>
+    <p><b>Subject:</b> <?= htmlspecialchars($attempt['subjectName']) ?></p>
+    <p><b>Lesson:</b> <?= htmlspecialchars($attempt['lessonTitle']) ?></p>
     <p><b>Score:</b> <?= $attempt['score'] ?> / <?= $attempt['totalQuestions'] ?></p>
     <p><b>Date Taken:</b> <?= $attempt['submittedAt'] ?></p>
+
 </div>
 
 <h3>Answers Breakdown</h3>
@@ -137,28 +183,30 @@ $answers = $stmt2->get_result();
     <div class="question <?= ($row['isCorrect']) ? 'correct' : 'wrong' ?>">
 
         <div class="title">
-            Q: <?= $row['questionText'] ?>
+            <?= htmlspecialchars($row['questionText']) ?>
         </div>
 
         <div class="meta">
-            <b>Student Answer:</b> <?= $row['studentAnswer'] ?>
+            <b>Your Answer:</b> <?= htmlspecialchars($row['studentAnswer']) ?>
         </div>
 
         <div class="meta">
-            <b>Correct Answer:</b> <?= $row['correctAnswer'] ?>
+            <b>Correct Answer:</b> <?= htmlspecialchars($row['correctAnswer']) ?>
         </div>
 
         <div class="meta">
             <b>Points:</b> <?= $row['points'] ?>
         </div>
 
-        <div class="meta">
-            <?= ($row['isCorrect']) ? "✔ Correct" : "✘ Wrong" ?>
+        <div class="badge <?= ($row['isCorrect']) ? 'ok' : 'bad' ?>">
+            <?= ($row['isCorrect']) ? 'Correct' : 'Wrong' ?>
         </div>
 
     </div>
 
 <?php } ?>
+
+</div>
 
 </body>
 </html>

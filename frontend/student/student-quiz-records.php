@@ -7,165 +7,213 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     exit();
 }
 
-$userID = $_SESSION['userID'];
+$userID = (int) $_SESSION['userID'];
 
-/* =========================
-   GET ONLY CURRENT STUDENT ATTEMPTS
-========================= */
 $stmt = $conn->prepare("
     SELECT 
         qa.attemptID,
         qa.score,
         qa.totalQuestions,
-        qa.attemptedAt,
-
+        qa.submittedAt,
         l.lessonTitle,
         s.subjectName
-
     FROM quiz_attempts qa
-
-    LEFT JOIN lessons l 
-        ON qa.lessonID = l.lessonID
-
-    LEFT JOIN subjects s 
-        ON l.subjectID = s.subjectID
-
+    LEFT JOIN lessons l ON qa.lessonID = l.lessonID
+    LEFT JOIN subjects s ON l.subjectID = s.subjectID
     WHERE qa.studentID = ?
-
-    ORDER BY qa.attemptedAt DESC
+    ORDER BY qa.submittedAt DESC
 ");
 
 $stmt->bind_param("i", $userID);
 $stmt->execute();
-
 $result = $stmt->get_result();
+
+/* =========================
+   SAFE PERCENT
+========================= */
+function percent($score, $total) {
+    if (!$total) return 0;
+    return round(($score / $total) * 100, 2);
+}
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Quiz Records</title>
+<title>My Quiz Attempts</title>
 
-    <style>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family: Arial;
+}
 
-        body{
-            font-family: Arial;
-            margin: 20px;
-        }
+body{
+    background:#f4f6fb;
+}
 
-        table{
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
+/* HEADER */
+.header{
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color:white;
+    padding:18px 25px;
+}
 
-        th, td{
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
-        }
+/* CONTAINER */
+.container{
+    padding:25px;
+    max-width:1000px;
+    margin:auto;
+}
 
-        th{
-            background: #f5f5f5;
-        }
+/* GRID */
+.grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap:15px;
+}
 
-        .good{
-            color: green;
-            font-weight: bold;
-        }
+/* CARD */
+.card{
+    background:white;
+    padding:15px;
+    border-radius:14px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
+    border-left:6px solid #4f46e5;
+    transition:0.2s;
+}
 
-        .bad{
-            color: red;
-            font-weight: bold;
-        }
+.card:hover{
+    transform: translateY(-3px);
+}
 
-        .btn{
-            background: #007bff;
-            color: white;
-            padding: 6px 10px;
-            text-decoration: none;
-            border-radius: 5px;
-        }
+/* TEXT */
+.title{
+    font-weight:bold;
+    font-size:16px;
+    margin-bottom:6px;
+}
 
-        .empty{
-            text-align: center;
-            color: gray;
-        }
+.meta{
+    font-size:14px;
+    color:#555;
+    margin-bottom:5px;
+}
 
-    </style>
+/* SCORE */
+.score{
+    font-weight:bold;
+}
+
+.good{
+    color:#16a34a;
+}
+
+.bad{
+    color:#dc2626;
+}
+
+/* BUTTON */
+.btn{
+    display:inline-block;
+    margin-top:10px;
+    padding:7px 12px;
+    background:#4f46e5;
+    color:white;
+    text-decoration:none;
+    border-radius:8px;
+    font-size:13px;
+}
+
+.btn:hover{
+    background:#3730a3;
+}
+
+/* EMPTY */
+.empty{
+    text-align:center;
+    padding:30px;
+    color:gray;
+    background:white;
+    border-radius:12px;
+}
+</style>
 
 </head>
 
 <body>
 
-<h2>My Quiz Records</h2>
+<div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2>My Quiz Attempts</h2>
 
-<a href="student-dashboard.php">← Back to Dashboard</a>
+    <a href="../student/student-dashboard.php" 
+       style="
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+       ">
+        ⬅ Go to Dashboard
+    </a>
+</div>
 
-<table>
+<div class="container">
 
-    <tr>
-        <th>Attempt ID</th>
-        <th>Subject</th>
-        <th>Lesson</th>
-        <th>Score</th>
-        <th>Total</th>
-        <th>Percentage</th>
-        <th>Date Taken</th>
-        <th>Action</th>
-    </tr>
+<div class="grid">
 
-    <?php if ($result->num_rows > 0) { ?>
+<?php if ($result->num_rows > 0): ?>
 
-        <?php while ($row = $result->fetch_assoc()) {
+    <?php while ($row = $result->fetch_assoc()): 
 
-            $percent = 0;
+        $percent = percent($row['score'], $row['totalQuestions']);
+    ?>
 
-            if ($row['totalQuestions'] > 0) {
-                $percent = ($row['score'] / $row['totalQuestions']) * 100;
-            }
-        ?>
+    <div class="card">
 
-        <tr>
+        <div class="title">
+            <?= htmlspecialchars($row['subjectName']) ?>
+        </div>
 
-            <td><?= $row['attemptID'] ?></td>
+        <div class="meta">
+            <?= htmlspecialchars($row['lessonTitle']) ?>
+        </div>
 
-            <td><?= htmlspecialchars($row['subjectName']) ?></td>
+        <div class="meta score <?= ($percent >= 75 ? 'good' : 'bad') ?>">
+            Score: <?= $row['score'] ?> / <?= $row['totalQuestions'] ?>
+        </div>
 
-            <td><?= htmlspecialchars($row['lessonTitle']) ?></td>
+        <div class="meta">
+            <?= $percent ?>%
+        </div>
 
-            <td><?= $row['score'] ?></td>
+        <div class="meta">
+            <?= $row['submittedAt'] ?>
+        </div>
 
-            <td><?= $row['totalQuestions'] ?></td>
+        <a class="btn"
+           href="student-view-attempt.php?attemptID=<?= $row['attemptID'] ?>">
+            View Details
+        </a>
 
-            <td class="<?= ($percent >= 75) ? 'good' : 'bad' ?>">
-                <?= round($percent, 2) ?>%
-            </td>
+    </div>
 
-            <td><?= $row['attemptedAt'] ?></td>
+    <?php endwhile; ?>
 
-            <td>
-                <a class="btn"
-                   href="student-view-attempt.php?id=<?= $row['attemptID'] ?>">
-                   View Details
-                </a>
-            </td>
+<?php else: ?>
 
-        </tr>
+    <div class="empty">
+       NO QUIZ ATTEMPTS FOUND
+    </div>
 
-        <?php } ?>
+<?php endif; ?>
 
-    <?php } else { ?>
+</div>
 
-        <tr>
-            <td colspan="8" class="empty">
-                No quiz attempts found.
-            </td>
-        </tr>
-
-    <?php } ?>
-
-</table>
+</div>
 
 </body>
 </html>
