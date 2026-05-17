@@ -2,17 +2,23 @@
 
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
+
+$csrf = generateCSRF();
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
 
-
 /* =========================
    ADD SUBJECT
 ========================= */
 if (isset($_POST['addSubject'])) {
+
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
 
     $subjectName = trim($_POST['subjectName']);
     $description = trim($_POST['description']);
@@ -35,25 +41,6 @@ if (isset($_POST['addSubject'])) {
     } else {
         $error = "Subject name is required.";
     }
-}
-
-/* =========================
-   DELETE SUBJECT (SOFT DELETE)
-========================= */
-if (isset($_GET['delete'])) {
-
-    $id = (int) $_GET['delete'];
-
-    $stmt = $conn->prepare("
-        UPDATE subjects
-        SET date_deleted = NOW()
-        WHERE subjectID = ?
-    ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-
-    header("Location: subjects.php");
-    exit();
 }
 
 /* =========================
@@ -249,7 +236,11 @@ $result = $stmt->get_result();
 
     <form method="POST">
 
-        <label>Subject Name</label>
+    <input type="hidden"
+           name="csrf_token"
+           value="<?= $csrf ?>">
+
+    <label>Subject Name</label>
         <input type="text" name="subjectName" required>
 
         <label>Description</label>
@@ -304,11 +295,27 @@ $result = $stmt->get_result();
                 Edit
             </a>
 
-            <a class="btn delete"
-               href="subjects.php?delete=<?= $row['subjectID'] ?>"
-               onclick="return confirm('Delete this subject?')">
-                Delete
-            </a>
+            <form method="POST"
+      action="delete-subject.php"
+      style="display:inline;">
+
+    <input type="hidden"
+           name="subjectID"
+           value="<?= $row['subjectID'] ?>">
+
+    <input type="hidden"
+           name="csrf_token"
+           value="<?= $csrf ?>">
+
+    <button type="submit"
+            class="btn delete"
+            onclick="return confirm('Delete this subject?')">
+
+        Delete
+
+    </button>
+
+</form>
         </td>
     </tr>
 

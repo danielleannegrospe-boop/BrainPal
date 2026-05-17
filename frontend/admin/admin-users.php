@@ -3,6 +3,8 @@ session_start();
 
 require_once '../../backend/database.php';
 $env = require_once '../../backend/pusher.php';
+require_once '../../backend/csrf.php';
+$csrf = generateCSRF();
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
@@ -12,15 +14,20 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
 /* =========================
    DELETE USER (SOFT DELETE)
 ========================= */
-if (isset($_GET['delete'])) {
+if (isset($_POST['deleteUser'])) {
 
-    $id = (int) $_GET['delete'];
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
+
+    $id = (int) $_POST['delete_id'];
 
     $stmt = $conn->prepare("
-        UPDATE users 
+        UPDATE users
         SET date_deleted = NOW()
         WHERE userID = ?
     ");
+
     $stmt->bind_param("i", $id);
     $stmt->execute();
 
@@ -234,11 +241,21 @@ $result = $stmt->get_result();
 
                 <td>
                     <a class="edit" href="edit-user.php?id=<?= $row['userID'] ?>">Edit</a>
-                    <a class="delete"
-                       href="admin-users.php?delete=<?= $row['userID'] ?>"
-                       onclick="return confirm('Delete this user?')">
-                       Delete
-                    </a>
+                    <form method="POST" style="display:inline;">
+
+                    <input type="hidden" name="delete_id" value="<?= $row['userID'] ?>">
+                    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+
+                    <button type="submit"
+                        name="deleteUser"
+                        class="delete"
+                        onclick="return confirm('Delete this user?')"
+                        style="background:none;border:none;cursor:pointer;">
+
+                         Delete
+                    </button>
+
+                    </form>
                 </td>
             </tr>
             <?php } ?>

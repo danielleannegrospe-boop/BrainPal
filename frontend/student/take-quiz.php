@@ -172,14 +172,14 @@ button:hover{background:#0056b3;}
 
 <?php if ($q['questionType'] === 'multiple_choice'): ?>
 
-<label><input type="radio" name="answer[<?= $q['questionID'] ?>]" value="A" required> <?= $q['choiceA'] ?></label><br>
-<label><input type="radio" name="answer[<?= $q['questionID'] ?>]" value="B"> <?= $q['choiceB'] ?></label><br>
-<label><input type="radio" name="answer[<?= $q['questionID'] ?>]" value="C"> <?= $q['choiceC'] ?></label><br>
-<label><input type="radio" name="answer[<?= $q['questionID'] ?>]" value="D"> <?= $q['choiceD'] ?></label>
+<label><input type="radio" name="answers[<?= $q['questionID'] ?>]" value="A" required> <?= $q['choiceA'] ?></label><br>
+<label><input type="radio" name="answers[<?= $q['questionID'] ?>]" value="B"> <?= $q['choiceB'] ?></label><br>
+<label><input type="radio" name="answers[<?= $q['questionID'] ?>]" value="C"> <?= $q['choiceC'] ?></label><br>
+<label><input type="radio" name="answers[<?= $q['questionID'] ?>]" value="D"> <?= $q['choiceD'] ?></label>
 
 <?php else: ?>
 
-<input type="text" name="answer[<?= $q['questionID'] ?>]" required>
+<input type="text" name="answers[<?= $q['questionID'] ?>]" required>
 
 <?php endif; ?>
 

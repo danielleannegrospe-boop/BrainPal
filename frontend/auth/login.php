@@ -1,10 +1,17 @@
 <?php
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
+
+$csrf = generateCSRF();
 
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
 
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -157,17 +164,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <form method="POST">
+    <<form method="POST">
 
-        <input type="email" name="email" placeholder="Email" required>
+    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
-        <input type="password" name="password" placeholder="Password" required>
+    <input type="email" name="email" placeholder="Email" required>
 
-        <button type="submit" name="login" class="btn-login">
-            Login
-        </button>
+    <input type="password" name="password" placeholder="Password" required>
 
-    </form>
+    <button type="submit" name="login" class="btn-login">
+        Login
+    </button>
+
+</form>
 
     <a href="register.php">
         <button type="button" class="btn-register">

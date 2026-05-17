@@ -1,29 +1,12 @@
 <?php
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
+
+$csrf = generateCSRF();
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
-    exit();
-}
-
-/* =========================
-   DELETE LESSON (SOFT DELETE)
-========================= */
-if (isset($_GET['delete'])) {
-
-    $id = (int) $_GET['delete'];
-
-    $stmt = $conn->prepare("
-        UPDATE lessons
-        SET date_deleted = NOW()
-        WHERE lessonID = ?
-    ");
-
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-
-    header("Location: lessons.php");
     exit();
 }
 
@@ -278,11 +261,27 @@ $result = $stmt->get_result();
                 Edit
             </a>
 
-            <a class="btn delete"
-               href="lessons.php?delete=<?= $row['lessonID'] ?>"
-               onclick="return confirm('Delete this lesson?')">
-                Delete
-            </a>
+            <form method="POST"
+      action="delete-lesson.php"
+      style="display:inline;">
+
+    <input type="hidden"
+           name="lessonID"
+           value="<?= $row['lessonID'] ?>">
+
+    <input type="hidden"
+           name="csrf_token"
+           value="<?= $csrf ?>">
+
+    <button type="submit"
+            class="btn delete"
+            onclick="return confirm('Delete this lesson?')">
+
+        Delete
+
+    </button>
+
+</form>
 
         </td>
     </tr>

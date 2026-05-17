@@ -2,10 +2,15 @@
 session_start();
 require_once '../../backend/database.php';
 require_once '../../backend/pusher.php';
+require_once '../../backend/csrf.php';
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header("Location: ../auth/login.php");
     exit();
+}
+
+if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+    die("CSRF validation failed");
 }
 
 $userID = (int) $_SESSION['userID'];

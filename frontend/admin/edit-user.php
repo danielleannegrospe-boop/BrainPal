@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once '../../backend/database.php';
+require_once '../../backend/csrf.php';
+
+$csrf = generateCSRF(); 
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
@@ -29,6 +32,10 @@ if (!$user) {
    UPDATE USER
 ========================= */
 if (isset($_POST['update'])) {
+
+    if (!validateCSRF($_POST['csrf_token'] ?? '')) {
+        die("CSRF validation failed");
+    }
 
     $firstName = trim($_POST['firstName']);
     $lastName  = trim($_POST['lastName']);
@@ -175,6 +182,8 @@ if (isset($_POST['update'])) {
     <?php endif; ?>
 
     <form method="POST">
+
+        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
 
         <label>First Name</label>
         <input type="text"

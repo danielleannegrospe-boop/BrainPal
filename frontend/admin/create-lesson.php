@@ -300,7 +300,33 @@ $result = $conn->query($sql);
     <td class="actions">
         <a href="edit-lesson.php?id=<?= $row['lessonID'] ?>">Edit</a>
         <a href="add-question.php?lessonID=<?= $row['lessonID'] ?>">Questions</a>
-        <a href="delete-lesson.php?id=<?= $row['lessonID'] ?>">Delete</a>
+        <form method="POST"
+      action="delete-lesson.php"
+      style="display:inline;">
+
+    <input type="hidden"
+           name="lessonID"
+           value="<?= $row['lessonID'] ?>">
+
+    <input type="hidden"
+           name="csrf_token"
+           value="<?= $csrf ?>">
+
+    <button type="submit"
+            onclick="return confirm('Delete lesson?')"
+            style="
+                background:none;
+                border:none;
+                color:#dc2626;
+                font-weight:bold;
+                cursor:pointer;
+                margin-top:0;
+                padding:0;
+            ">
+        Delete
+    </button>
+
+</form>
     </td>
 </tr>
 
