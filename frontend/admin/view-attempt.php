@@ -158,8 +158,20 @@ $answers = $stmt2->get_result();
 
 <body>
 
-<div class="header">
+<div class="header" style="display:flex;justify-content:space-between;align-items:center;">
     <h2>Quiz Attempt Details</h2>
+
+    <a href="../admin/quiz-records.php"
+       style="
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+       ">
+        ⬅ Back to Quiz Records
+    </a>
 </div>
 
 <div class="container">
